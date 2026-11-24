@@ -393,7 +393,7 @@ $("rs").onclick=async()=>{
   catch(e){$("bm").textContent="النص غير صالح للاستعادة."}
 };
 const IDB={db:null,
-  open(){return new Promise((res,rej)=>{if(this.db)return res(this.db);if(!window.indexedDB)return rej(new Error("no idb"));const q=indexedDB.open("bgc-hr",1);q.onupgradeneeded=()=>q.result.createObjectStore("docs");q.onsuccess=()=>{this.db=q.result;res(this.db)};q.onerror=()=>rej(q.error)})},
+  open(){return new Promise((res,rej)=>{if(this.db)return res(this.db);if(!window.indexedDB)return rej(new Error("no idb"));const q=indexedDB.open("bgc-hr",2);q.onupgradeneeded=e=>{const d=q.result;if(!d.objectStoreNames.contains("docs"))d.createObjectStore("docs")};q.onsuccess=()=>{this.db=q.result;if(!this.db.objectStoreNames.contains("docs")){this.db.close();this.db=null;const q2=indexedDB.open("bgc-hr",this.dbver=Date.now());q2.onupgradeneeded=()=>{if(!q2.result.objectStoreNames.contains("docs"))q2.result.createObjectStore("docs")};q2.onsuccess=()=>{this.db=q2.result;res(this.db)};q2.onerror=()=>rej(q2.error);return}res(this.db)};q.onerror=()=>rej(q.error)})},
   async put(id,b){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("docs","readwrite");t.objectStore("docs").put(b,id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})},
   async get(id){const d=await this.open();return new Promise((res,rej)=>{const q=d.transaction("docs").objectStore("docs").get(id);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})},
   async del(id){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("docs","readwrite");t.objectStore("docs").delete(id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})},
@@ -817,4 +817,4 @@ function sbGate(){return new Promise(res=>{const o=document.createElement("div")
   if(gp())$("lock").hidden=false;else start()})()
 </script>
 </body>
-        </html>
+                                                                                                                                                   </html>
