@@ -779,7 +779,7 @@ async function sbReq(path,opt){opt=opt||{};const r=await fetch(SYNC.url+path,{me
 let sbRefresh="";
 async function sbLogin(email,pw){const r=await fetch(SYNC.url+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:SYNC.anon,"Content-Type":"application/json"},body:JSON.stringify({email,password:pw})});if(!r.ok)throw new Error("login");const j=await r.json();sbToken=j.access_token;sbRefresh=j.refresh_token||""}
 async function sbRefreshLogin(){const rt=localStorage.getItem("hr_rt");if(!rt)return false;const r=await fetch(SYNC.url+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{apikey:SYNC.anon,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});if(!r.ok){localStorage.removeItem("hr_rt");return false}const j=await r.json();sbToken=j.access_token;if(j.refresh_token)localStorage.setItem("hr_rt",j.refresh_token);return true}
-async function sbPull(){const rows=await sbReq("/rest/v1/"+SYNC.table+"?id=eq.1&select=*");const row=rows&&rows[0];if(!row)return false;const st=row.state||{};data=st.emp||[];cands=st.cands||[];dcs=st.dcs||[];cus=st.cus||[];ads=st.ads||[];if(row.rev)rev=row.rev;if(row.saved_at)savedAt=row.saved_at;save();return true}
+async function sbPull(){const rows=await sbReq("/rest/v1/"+SYNC.table+"?id=eq.1&select=*");const row=rows&&rows[0];if(!row)return false;const st=row.state||{};data=st.emp||[];cands=st.cands||[];dcs=st.dcs||[];cus=st.cus||[];ads=st.ads||[];if(row.rev!==undefined&&row.rev!==null)rev=row.rev;if(row.saved_at)savedAt=row.saved_at;const _r=rev,_s=savedAt;save();rev=_r;savedAt=_s;localStorage.setItem("hr_rev",rev);localStorage.setItem("hr_saved_at",savedAt);return true}
 let lastSyncedRev=0,sbRetry=null;
 function setSync(t,bad){const e=document.getElementById("sbs");if(e){e.textContent=t;e.style.color=bad?"var(--bad)":"var(--mute)"}}
 async function sbPush(){if(SYNC.mode!=="supabase"||!sbToken)return;
@@ -812,4 +812,4 @@ function sbGate(){return new Promise(res=>{const o=document.createElement("div")
   if(gp())$("lock").hidden=false;else start()})()
 </script>
 </body>
-</html>
+      </html>
