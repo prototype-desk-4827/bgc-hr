@@ -388,7 +388,7 @@ $("cp").onclick=async()=>{try{await navigator.clipboard.writeText($("bt").value)
 $("rs").onclick=async()=>{
   try{let a=JSON.parse($("bt").value),cs=null,ds=null,cu=null,ad=null,docs=null;if(a&&!Array.isArray(a)&&Array.isArray(a.emp)){cs=a.cands||[];ds=a.dcs||[];cu=a.cus||[];ad=a.ads||[];docs=a.docs||null;if(a.rev!=null){rev=a.rev;lastSyncedRev=a.rev}if(a.savedAt)savedAt=a.savedAt;a=a.emp}if(!Array.isArray(a))throw 0;
     if(!await ask("سيتم استبدال البيانات الحالية بـ "+a.length+" موظف. متابعة؟"))return;
-    if(docs){for(const id in docs){try{const o=docs[id],bin=atob(o.d),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);await IDB.put(id,new File([u8],o.n||id,{type:o.t||"application/octet-stream"}))}catch(e){console.warn("doc restore",id,e)}}}
+    if(docs){for(const id in docs){try{const o=docs[id],bin=atob(o.d),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);const nf=new File([u8],o.n||id,{type:o.t||"application/octet-stream"});await IDB.put(id,nf);if(SYNC.mode==="supabase"&&sbToken){try{await fetch(SYNC.url+"/storage/v1/object/"+SYNC.bucket+"/"+id,{method:"POST",headers:{apikey:SYNC.anon,Authorization:"Bearer "+sbToken,"Content-Type":nf.type,"x-upsert":"true"},body:nf})}catch(x){console.warn("storage restore",id,x)}}}catch(e){console.warn("doc restore",id,e)}}}
     data=a;if(cs)cands=cs;if(ds)dcs=ds;if(cu)cus=cu;if(ad)ads=ad;save();render();$("bd").close()}
   catch(e){$("bm").textContent="النص غير صالح للاستعادة."}
 };
@@ -400,7 +400,7 @@ const IDB={db:null,
   async all(){const d=await this.open();return new Promise((res,rej)=>{const s=d.transaction("docs").objectStore("docs"),kq=s.getAllKeys(),vq=s.getAll();let ks,vs;const mb=()=>{if(ks&&vs){const o={};ks.forEach((k,i)=>o[k]=vs[i]);res(o)}};kq.onsuccess=()=>{ks=kq.result;mb()};vq.onsuccess=()=>{vs=vq.result;mb()};kq.onerror=vq.onerror=()=>rej(kq.error||vq.error)})}};
 document.addEventListener("click",async e=>{const a=e.target.closest&&e.target.closest('a[href^="idb:"]');if(!a)return;e.preventDefault();const id=a.getAttribute("href").slice(4);let w=null;try{w=window.open("","_blank")}catch(x){}
   try{let b=await IDB.get(id);
-    if(!b&&SYNC.mode==="supabase"&&sbToken){try{const r=await fetch(SYNC.url+"/storage/v1/object/authenticated/"+SYNC.bucket+"/"+id,{headers:{apikey:SYNC.anon,Authorization:"Bearer "+sbToken}});if(r.ok)b=await r.blob()}catch(x){}}
+    if(!b&&SYNC.mode==="supabase"&&sbToken){try{const r=await fetch(SYNC.url+"/storage/v1/object/authenticated/"+SYNC.bucket+"/"+id,{headers:{apikey:SYNC.anon,Authorization:"Bearer "+sbToken}});if(r.ok){b=await r.blob();if(b)try{await IDB.put(id,b)}catch(x){}}}catch(x){}}
     if(!b){if(w)w.close();return}
     const u=URL.createObjectURL(b);
     if(w){w.location=u}else{const an=document.createElement("a");an.href=u;an.download=a.textContent||"document";document.body.appendChild(an);an.click();an.remove()}
@@ -441,7 +441,7 @@ function csv(){const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
   return "\uFEFF"+[HD,...data.map(x=>[x.c,x.n,x.t,x.d,x.h,x.e,x.pr,x.rz,x.bh,x.p,x.m,x.s,+x.b||21,used(x),x.o,x.ins&&x.ins.c,x.ins&&x.ins.n,x.ins&&x.ins.e,x.end&&x.end.d,x.g==="mg"?"إدارة عليا":"موظف"])].map(r=>r.map(q).join(",")).join("\r\n")}
 async function saveFile(name,txt){try{await DL.save({filename:name,data:txt});$("bm").textContent="تم الحفظ."}catch(e){$("bm").textContent=e&&e.code==="declined"?"تم الإلغاء.":"تعذر الحفظ، استخدم نسخ النص."}}
 $("ex2").onclick=()=>saveFile("employees.csv",csv());
-$("ex3").onclick=async()=>{const docs={};try{const all=await IDB.all();for(const id in all){const f=all[id];if(!f||!f.size)continue;const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result).split(",")[1]);fr.onerror=()=>r(null);fr.readAsDataURL(f)});if(b64)docs[id]={n:f.name||id,t:f.type||"application/octet-stream",d:b64}}}catch(e){console.warn("docs export",e)}saveFile("employees-backup.json",JSON.stringify({v:3,rev,savedAt,emp:data,cands,dcs,cus,ads,docs}))};
+$("ex3").onclick=async()=>{const docs={};const b64of=f=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result).split(",")[1]);fr.onerror=()=>r(null);fr.readAsDataURL(f)});try{const all=await IDB.all();for(const id in all){const f=all[id];if(!f||!f.size)continue;const b64=await b64of(f);if(b64)docs[id]={n:f.name||id,t:f.type||"application/octet-stream",d:b64}}}catch(e){console.warn("docs export",e)}if(SYNC.mode==="supabase"&&sbToken){const refd={};data.forEach(x=>(x.docs||[]).forEach(d=>{if(d&&d.id)refd[d.id]=d}));for(const id in refd){if(docs[id])continue;try{const r=await fetch(SYNC.url+"/storage/v1/object/authenticated/"+SYNC.bucket+"/"+id,{headers:{apikey:SYNC.anon,Authorization:"Bearer "+sbToken}});if(!r.ok)continue;const bl=await r.blob();if(!bl||!bl.size)continue;const b64=await b64of(bl);if(b64){docs[id]={n:refd[id].name||id,t:bl.type||"application/octet-stream",d:b64};try{await IDB.put(id,bl)}catch(x){}}}catch(x){console.warn("cloud doc export",id,x)}}}saveFile("employees-backup.json",JSON.stringify({v:3,rev,savedAt,emp:data,cands,dcs,cus,ads,docs}))};
 $("sh").onclick=async()=>{if(!cur)return;
   const t=[cur.n,cur.t,cur.d,cur.c&&"كود: "+cur.c,cur.p&&"موبايل: "+cur.p,cur.m&&"إيميل: "+cur.m].filter(Boolean).join("\n");
   try{if(navigator.share){await navigator.share({text:t});return}}catch(e){if(e&&e.name==="AbortError")return}
@@ -817,4 +817,4 @@ function sbGate(){return new Promise(res=>{const o=document.createElement("div")
   if(gp())$("lock").hidden=false;else start()})()
 </script>
 </body>
-                                               </html>
+        </html>
