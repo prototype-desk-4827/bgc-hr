@@ -235,7 +235,7 @@ a{color:var(--ink);text-decoration:underline}
     <button class="btn ghost" id="bc">إغلاق</button>
   </div>
   <p class="meta" id="bm"></p>
-  <div class="sec"><h4>استيراد من Excel</h4><p class="meta">ارفع ملف Excel أو CSV بنفس أعمدة ملف التصدير (استخدمه كقالب). الأسماء المكررة تُتخطى.</p><button class="btn ghost" id="xb" type="button">اختيار ملف</button><input id="xf" type="file" hidden accept=".xlsx,.xls,.csv"></div>
+  <div class="sec"><h4>استيراد من Excel</h4><p class="meta">ارفع ملف Excel أو CSV بنفس أعمدة ملف التصدير (استخدمه كقالب). الأسماء المكررة تُتخطى.</p><button class="btn ghost" id="xb" type="button">اختيار ملف</button><input id="xf" type="file" hidden accept=".xlsx,.xls,.csv,.json"></div>
   <div class="sec"><h4>قفل بكلمة سر</h4><p class="meta">قفل للشاشة فقط ولا يشفّر البيانات المخزنة في المتصفح. لو نسيتها لن تستطيع الدخول، فاحتفظ بنسخة JSON.</p><input class="pi" id="np" type="password" placeholder="كلمة سر جديدة" autocomplete="new-password"><div class="acts"><button class="btn" id="pw1" type="button">حفظ كلمة السر</button><button class="btn ghost" id="pw3" type="button">قفل الآن</button><button class="btn danger" id="pw2" type="button">إزالة</button></div><div class="meta" id="pm"></div></div>
 </dialog>
 
@@ -386,8 +386,9 @@ $("bk").onclick=()=>{$("bt").value=JSON.stringify({v:2,rev,savedAt,emp:data,cand
 $("bc").onclick=()=>$("bd").close();
 $("cp").onclick=async()=>{try{await navigator.clipboard.writeText($("bt").value);$("bm").textContent="تم النسخ."}catch(e){$("bt").select();$("bm").textContent="حدد النص وانسخه يدويًا."}};
 $("rs").onclick=async()=>{
-  try{let a=JSON.parse($("bt").value),cs=null,ds=null,cu=null,ad=null;if(a&&!Array.isArray(a)&&Array.isArray(a.emp)){cs=a.cands||[];ds=a.dcs||[];cu=a.cus||[];ad=a.ads||[];a=a.emp}if(!Array.isArray(a))throw 0;
+  try{let a=JSON.parse($("bt").value),cs=null,ds=null,cu=null,ad=null,docs=null;if(a&&!Array.isArray(a)&&Array.isArray(a.emp)){cs=a.cands||[];ds=a.dcs||[];cu=a.cus||[];ad=a.ads||[];docs=a.docs||null;if(a.rev!=null){rev=a.rev;lastSyncedRev=a.rev}if(a.savedAt)savedAt=a.savedAt;a=a.emp}if(!Array.isArray(a))throw 0;
     if(!await ask("سيتم استبدال البيانات الحالية بـ "+a.length+" موظف. متابعة؟"))return;
+    if(docs){for(const id in docs){try{const o=docs[id],bin=atob(o.d),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);await IDB.put(id,new File([u8],o.n||id,{type:o.t||"application/octet-stream"}))}catch(e){console.warn("doc restore",id,e)}}}
     data=a;if(cs)cands=cs;if(ds)dcs=ds;if(cu)cus=cu;if(ad)ads=ad;save();render();$("bd").close()}
   catch(e){$("bm").textContent="النص غير صالح للاستعادة."}
 };
@@ -395,7 +396,8 @@ const IDB={db:null,
   open(){return new Promise((res,rej)=>{if(this.db)return res(this.db);if(!window.indexedDB)return rej(new Error("no idb"));const q=indexedDB.open("bgc-hr",1);q.onupgradeneeded=()=>q.result.createObjectStore("docs");q.onsuccess=()=>{this.db=q.result;res(this.db)};q.onerror=()=>rej(q.error)})},
   async put(id,b){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("docs","readwrite");t.objectStore("docs").put(b,id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})},
   async get(id){const d=await this.open();return new Promise((res,rej)=>{const q=d.transaction("docs").objectStore("docs").get(id);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})},
-  async del(id){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("docs","readwrite");t.objectStore("docs").delete(id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}};
+  async del(id){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("docs","readwrite");t.objectStore("docs").delete(id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})},
+  async all(){const d=await this.open();return new Promise((res,rej)=>{const s=d.transaction("docs").objectStore("docs"),kq=s.getAllKeys(),vq=s.getAll();let ks,vs;const mb=()=>{if(ks&&vs){const o={};ks.forEach((k,i)=>o[k]=vs[i]);res(o)}};kq.onsuccess=()=>{ks=kq.result;mb()};vq.onsuccess=()=>{vs=vq.result;mb()};kq.onerror=vq.onerror=()=>rej(kq.error||vq.error)})}};
 document.addEventListener("click",async e=>{const a=e.target.closest&&e.target.closest('a[href^="idb:"]');if(!a)return;e.preventDefault();const id=a.getAttribute("href").slice(4);let w=null;try{w=window.open("","_blank")}catch(x){}
   try{let b=await IDB.get(id);
     if(!b&&SYNC.mode==="supabase"&&sbToken){try{const r=await fetch(SYNC.url+"/storage/v1/object/authenticated/"+SYNC.bucket+"/"+id,{headers:{apikey:SYNC.anon,Authorization:"Bearer "+sbToken}});if(r.ok)b=await r.blob()}catch(x){}}
@@ -439,7 +441,7 @@ function csv(){const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
   return "\uFEFF"+[HD,...data.map(x=>[x.c,x.n,x.t,x.d,x.h,x.e,x.pr,x.rz,x.bh,x.p,x.m,x.s,+x.b||21,used(x),x.o,x.ins&&x.ins.c,x.ins&&x.ins.n,x.ins&&x.ins.e,x.end&&x.end.d,x.g==="mg"?"إدارة عليا":"موظف"])].map(r=>r.map(q).join(",")).join("\r\n")}
 async function saveFile(name,txt){try{await DL.save({filename:name,data:txt});$("bm").textContent="تم الحفظ."}catch(e){$("bm").textContent=e&&e.code==="declined"?"تم الإلغاء.":"تعذر الحفظ، استخدم نسخ النص."}}
 $("ex2").onclick=()=>saveFile("employees.csv",csv());
-$("ex3").onclick=()=>saveFile("employees-backup.json",JSON.stringify({v:2,rev,savedAt,emp:data,cands,dcs,cus,ads}));
+$("ex3").onclick=async()=>{const docs={};try{const all=await IDB.all();for(const id in all){const f=all[id];if(!f||!f.size)continue;const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result).split(",")[1]);fr.onerror=()=>r(null);fr.readAsDataURL(f)});if(b64)docs[id]={n:f.name||id,t:f.type||"application/octet-stream",d:b64}}}catch(e){console.warn("docs export",e)}saveFile("employees-backup.json",JSON.stringify({v:3,rev,savedAt,emp:data,cands,dcs,cus,ads,docs}))};
 $("sh").onclick=async()=>{if(!cur)return;
   const t=[cur.n,cur.t,cur.d,cur.c&&"كود: "+cur.c,cur.p&&"موبايل: "+cur.p,cur.m&&"إيميل: "+cur.m].filter(Boolean).join("\n");
   try{if(navigator.share){await navigator.share({text:t});return}}catch(e){if(e&&e.name==="AbortError")return}
@@ -461,6 +463,7 @@ const AL={n:["الاسم","اسم الموظف","name"],c:["الكود","كود 
 function nd(v){v=String(v||"").trim();if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);const m=v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`:""}
 $("xb").onclick=()=>$("xf").click();
 $("xf").onchange=async()=>{const f=$("xf").files[0];$("xf").value="";if(!f)return;
+  if(/\.json$/i.test(f.name)){const t=await f.text();$("bt").value=t;$("bd").showModal();$("bm").textContent="راجع النسخة ثم اضغط استعادة للتأكيد.";return}
   if(typeof XLSX==="undefined"){$("bm").textContent="مكتبة Excel لم تُحمّل، تحقق من الاتصال.";return}
   try{const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,dateNF:"yyyy-mm-dd"});
@@ -813,4 +816,4 @@ function sbGate(){return new Promise(res=>{const o=document.createElement("div")
   if(gp())$("lock").hidden=false;else start()})()
 </script>
 </body>
-      </html>
+                                                                                                                                                                                                                           </html>
