@@ -809,7 +809,8 @@ function sbGate(){return new Promise(res=>{const o=document.createElement("div")
       if(ok){try{await sbPull();lastSyncedRev=rev;setSync("تمت المزامنة "+new Date().toLocaleTimeString("ar-EG"));const ft=document.getElementById("foot");if(ft)ft.textContent="البيانات محفوظة على خادم مشترك آمن، وتظهر نسخة محلية على هذا الجهاز."}catch(x){setSync("غير متصل — نسخة محلية",true)}}
       else{await sbGate()}}catch(e){return}}
   else setSync("محلي — بدون مزامنة");
+  if(SYNC.mode==="supabase"&&top){const lo=document.createElement("button");lo.id="sbo";lo.style.cssText="font-size:.75rem;cursor:pointer;background:none;border:1px solid var(--line);border-radius:6px;color:var(--mute);padding:2px 8px";lo.textContent="خروج";lo.onclick=()=>{["hr_rt","hr_rev","hr_saved_at","hr_cands_v1","hr_dc_v1","hr_cu_v1","hr_ad_v1",KEY].forEach(k=>localStorage.removeItem(k));location.reload()};top.appendChild(lo)}
   if(gp())$("lock").hidden=false;else start()})()
 </script>
 </body>
-      </html>
+    </html>
