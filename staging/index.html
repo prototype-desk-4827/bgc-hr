@@ -89,7 +89,7 @@ function renderLogin(){
 async function doLogin(){
  const r=await sb.rpc('staff_login',{p_code:$('code').value.trim(),p_pin:$('pin').value.trim()});
  if(r.error||!r.data||!r.data.length){show('err','الكود أو الرقم السري غير صحيح');return}
- ME=r.data[0]; window._role=ME.role;
+ ME=r.data[0]; window._role=ME.role; window._pin=$('pin').value.trim();
  renderHome();
 }
 function logout(){ME=null;renderLogin()}
@@ -155,7 +155,7 @@ function attLinks(atts){
 // ---------- EMPLOYEE ----------
 async function renderEmp(tab){
  tab=tab||'home';
- const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:$('pin').value.trim()});
+ const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});
  const D=act.data||{requests:[],notifications:[]};
  let body='';
  if(tab==='home'){
@@ -179,7 +179,6 @@ async function renderEmp(tab){
   <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">🔔 التنبيهات</button>
  </div>
  <div class="card">${body}</div>`;
- window._pin=$('pin')?$('pin').value:window._pin;
 }
 
 function reqCard(r,mine){
