@@ -56,7 +56,8 @@ label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
 .tl div{margin-bottom:8px;font-size:13px}.tl .mut{font-size:11px}
 .att a{color:var(--accent);font-size:12px;display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-all;direction:ltr;text-align:right;unicode-bidi:plaintext}
 .demo{background:#fff;border:1px dashed #ccc;border-radius:12px;padding:10px;font-size:12px;color:var(--mut);margin-top:12px}
-table.rep{width:100%;border-collapse:collapse;font-size:12px}
+table#repTable{overflow-x:auto}
+.rep{width:100%;border-collapse:collapse;font-size:12px}
 table.rep th,table.rep td{border:1px solid #ccc;padding:6px;text-align:right}
 table.rep th{background:var(--card2)}
 @media print{body{background:#fff;color:#000}.no-print,.tabs,#app>.card:first-child{display:none!important}.card{border:0;background:#fff}table.rep th{background:#eee}table.rep th,table.rep td{border-color:#999;color:#000}}
@@ -440,7 +441,7 @@ async function loadAAApproved(){
     <div class="row"><select id="pmd-${r.id}"><option>كاش</option><option>فودافون كاش</option><option>تحويل بنكي</option><option>انستاباي</option></select><input id="prc-${r.id}" placeholder="رقم المستلم" inputmode="tel" style="width:140px"></div>
     <div class="row"><label class="mut" style="font-size:12px">إثبات الصرف:</label><input id="ppf-${r.id}" type="file" accept="image/*,.pdf" style="font-size:12px"></div>
     <button class="btn ok sm" onclick="aaPay('${r.id}')">💸 تسجيل صرف</button></div>`
-   :`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} · ${esc(r.paid_method||'')} · ${fmtDate(r.paid_date)}</p><div class="row"><button class="btn warn sm" onclick="aaSendFa('${r.id}')">📤 إحالة للمراجعة المالية</button></div>`}
+   :`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} · ${esc(r.paid_method||'')} · ${fmtDate(r.paid_date)}${r.paid_recipient?` · المستلم ${esc(r.paid_recipient)}`:''}</p>${r.paid_proof&&r.paid_proof.length?attLinks(r.paid_proof):''}<div class="row"><button class="btn warn sm" onclick="aaSendFa('${r.id}')">📤 إحالة للمراجعة المالية</button></div>`}
   </div>`;
  }).join('');
  $('app').querySelector('.card:last-child').insertAdjacentHTML('beforeend',html);
