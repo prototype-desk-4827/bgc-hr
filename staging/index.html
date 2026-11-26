@@ -62,6 +62,8 @@ table.rep th,table.rep td{border:1px solid #ccc;padding:6px;text-align:right}
 table.rep th{background:var(--card2)}
 @media print{body{background:#fff;color:#000}.no-print,.tabs,#app>.card:first-child{display:none!important}.card{border:0;background:#fff}table.rep th{background:#eee}table.rep th,table.rep td{border-color:#999;color:#000}.print-det{display:block!important}.print-det .req{break-inside:avoid;border:1px solid #999;border-radius:0;margin:0 0 10px;padding:8px}.print-det img.att-img{max-width:100%;max-height:340px;display:block;margin:6px 0;border:1px solid #ccc}}
 .print-det{display:none}
+.print-det.show{display:block}
+.print-det img.att-img{max-width:100%;max-height:340px;display:block;margin:6px 0;border:1px solid #ddd}
 h3.sec{font-size:16px;margin:6px 0 10px;color:var(--accent)}
 </style>
 </head>
@@ -583,14 +585,21 @@ function renderRepTable(){
  const f=($('rep_from')||{}).value||'',t=($('rep_to')||{}).value||'';
  if(f&&t&&f>t){$('repTable').innerHTML='<div class="err" style="display:block">المدى الزمني معكوس: «من» بعد «إلى». صحّح التاريخين.</div>';return;}
  const rows=repFiltered();
+ window._docs={};let _di=0;
  const imgAtts=atts=>(atts||[]).filter(a=>a.data&&a.data.startsWith('data:image')).map(a=>`<img class="att-img" src="${a.data}" alt="${esc(a.name)}">`).join('');
+ const docAtts=atts=>(atts||[]).filter(a=>a.data&&!a.data.startsWith('data:image')).map(a=>{const did='doc'+(++_di);window._docs[did]=a.data;return `<a href="#" onclick="openDoc('${did}');return false">📄 ${esc(a.name)} — فتح المستند للطباعة</a>`}).join('');
  const det=rows.map(r=>`<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="mut">${STATUS[r.status][0]}</span></h4>
   <p>${r.amount!=null?`المبلغ: <b>${fmtMoney(r.amount)}</b> · `:''}تاريخ المستند: ${r.request_date||'—'} · تاريخ التقديم: ${new Date(r.created_at).toLocaleDateString('ar-EG')}</p>
   ${r.paid_amount?`<p>صُرف: ${fmtMoney(r.paid_amount)} · ${esc(r.paid_method||'')} · ${fmtDate(r.paid_date)}${r.paid_recipient?` · المستلم ${esc(r.paid_recipient)}`:''}</p>`:''}
-  <p>${esc(r.details||'')}</p>${imgAtts(r.attachments)}${r.paid_proof&&r.paid_proof.length?'<p class="mut">إثبات الصرف:</p>'+imgAtts(r.paid_proof):''}</div>`).join('');
- $('repTable').innerHTML=`<p class="mut">${rows.length} طلب</p><table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>تاريخ المستند</th><th>تاريخ التقديم</th></tr>`+
-  rows.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${r.request_date||''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>'+
+  <p>${esc(r.details||'')}</p>${imgAtts(r.attachments)}${docAtts(r.attachments)}${r.paid_proof&&r.paid_proof.length?'<p class="mut">إثبات الصرف:</p>'+imgAtts(r.paid_proof)+docAtts(r.paid_proof):''}</div>`).join('');
+ $('repTable').innerHTML=`<p class="mut">${rows.length} طلب</p><table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>المدفوع</th><th>طريقة الصرف</th><th>رقم المستلم</th><th>تاريخ المستند</th><th>تاريخ التقديم</th></tr>`+
+  rows.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${r.paid_amount??''}</td><td>${esc(r.paid_method||'')}</td><td>${esc(r.paid_recipient||'')}</td><td>${r.request_date||''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>'+
+  `<div class="row no-print" style="margin-top:8px"><button class="btn ghost sm" onclick="document.querySelector('.print-det').classList.toggle('show')">عرض/إخفاء التفاصيل والمرفقات</button></div>`+
   `<div class="print-det"><h3 class="sec">تفاصيل الطلبات والمرفقات</h3>${det}</div>`;
+}
+async function openDoc(did){
+ const r=await fetch(window._docs[did]);const b=await r.blob();
+ window.open(URL.createObjectURL(b),'_blank');
 }
 async function loadReports(){
  const r=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
