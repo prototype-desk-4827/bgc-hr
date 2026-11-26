@@ -395,7 +395,7 @@ async function renderAA(tab){
   <button onclick="renderHome()">${ic('home',14)} الرئيسية</button>
   <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">${ic('inbox',14)} الطلبات الواردة</button>
   <button class="${tab==='funding'?'on':''}" onclick="renderAA('funding')">${ic('money',14)} تحويلات التمويل</button>
-  <button class="${tab==='staff'?'on':''}" onclick="renderAA('staff')">${ic('users',14)} الموظفون</button>
+  <button class="${tab==='staff'?'on':''}" onclick="renderAA('staff')">${ic('users',14)} قاعدة البيانات</button>
   <button class="${tab==='rep'?'on':''}" onclick="renderAA('rep')">${ic('chart',14)} التقارير</button>
  </div>
  <div class="card">${body}</div>`;
@@ -473,20 +473,32 @@ async function aaSendFa(id){
 
 // staff lifecycle (AA)
 function staffForm(){
- return `<h3 class="sec">إضافة موظف جديد</h3>
+ return `<h3 class="sec">قاعدة البيانات — إضافة موظف جديد</h3>
  <div class="err" id="serr"></div><div class="okmsg" id="sok"></div>
  <label>كود الموظف (فريد)</label><input id="st_code" placeholder="BGC-009">
  <label>الاسم</label><input id="st_name">
- <label>الوظيفة</label><input id="st_job" placeholder="عامل / مهندس موقع / مشرف">
- <label>الموقع</label><input id="st_site">
+ <label>نوع الوظيفة</label><select id="st_type" onchange="stType()"><option value="engineer">مهندس</option><option value="worker">عامل</option></select>
+ <label id="st_qual_label">موقع العمل</label><input id="st_qual" placeholder="موقع الشروق">
+ <p class="mut" id="st_qual_hint">المهندس يُسجَّل باسم موقع عمله (مثل: موقع الشروق، موقع الجلالة) — مش اللوكيشن.</p>
  <label>رقم الموبايل</label><input id="st_phone" inputmode="tel">
  <p class="mut">كود الدخول السري يتولّد تلقائيًا ويظهر مرة واحدة للطباعة والتسليم للموظف.</p>
  <button class="btn" onclick="addStaff()">إضافة الموظف</button>
  <div id="slip"></div>
- <h3 class="sec" style="margin-top:16px">الموظفون المسجلون</h3>`;
+ <h3 class="sec" style="margin-top:16px">قاعدة بيانات الموظفين المسجلين</h3>`;
+}
+function stType(){
+ const eng=$('st_type').value==='engineer';
+ $('st_qual_label').textContent=eng?'موقع العمل':'الشغلانة / المهنة';
+ $('st_qual').placeholder=eng?'موقع الشروق':'نظافة';
+ $('st_qual_hint').textContent=eng?'المهندس يُسجَّل باسم موقع عمله (مثل: موقع الشروق، موقع الجلالة) — مش اللوكيشن.':'العامل يُسجَّل بشغلانته (مثل: نظافة، تشوينات، أمن).';
 }
 async function addStaff(){
- const r=await sb.rpc('staff_add',{p_code:ME.code,p_pin:window._pin,p_new_code:$('st_code').value.trim(),p_name:$('st_name').value.trim(),p_job_title:$('st_job').value.trim(),p_site:$('st_site').value.trim(),p_phone:$('st_phone').value.trim()});
+ const eng=$('st_type').value==='engineer';
+ const qual=$('st_qual').value.trim();
+ if(!qual){show('serr',eng?'اكتب اسم موقع العمل (مثال: موقع الشروق)':'اكتب الشغلانة (مثال: نظافة)');return}
+ const job=(eng?'مهندس — ':'عامل — ')+qual;
+ const site=eng?qual:'';
+ const r=await sb.rpc('staff_add',{p_code:ME.code,p_pin:window._pin,p_new_code:$('st_code').value.trim(),p_name:$('st_name').value.trim(),p_job_title:job,p_site:site,p_phone:$('st_phone').value.trim()});
  if(r.error){show('serr','خطأ: '+r.error.message);return}
  show('sok','تمت إضافة الموظف');printSlip($('st_code').value.trim(),$('st_name').value.trim(),r.data);loadStaff();
 }
@@ -507,7 +519,7 @@ async function rotateStaff(code,name){
 async function loadStaff(){
  const r=await sb.rpc('staff_list',{p_code:ME.code,p_pin:window._pin});
  $('staffList').innerHTML=(r.data||[]).map(s=>`<div class="req"><h4>${esc(s.name)} <span class="mut">${esc(s.code)} · ${esc(s.job_title||'')}</span> ${s.active?'<span class="chip c-approved">نشط</span>':'<span class="chip c-rejected">موقوف</span>'}</h4>
-  <p class="mut">${esc(s.site||'')} · ${esc(s.phone||'')}</p>
+  <p class="mut">${s.site&&!(s.job_title||'').includes(s.site)?esc(s.site)+' · ':''}${esc(s.phone||'')}</p>
   ${s.role==='employee'?`<div class="row">${s.active?`<button class="btn bad sm" onclick="toggleStaff('${esc(s.code)}',false)">⛔ إيقاف الكود</button>`:`<button class="btn ok sm" onclick="toggleStaff('${esc(s.code)}',true)">▶️ إعادة تفعيل</button>`}<button class="btn warn sm" onclick="rotateStaff('${esc(s.code)}','${esc(s.name)}')">🔄 إعادة توليد كود</button></div>`:'<p class="mut">حساب إداري</p>'}
  </div>`).join('');
 }
