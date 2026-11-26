@@ -89,10 +89,33 @@ function renderLogin(){
 async function doLogin(){
  const r=await sb.rpc('staff_login',{p_code:$('code').value.trim(),p_pin:$('pin').value.trim()});
  if(r.error||!r.data||!r.data.length){show('err','الكود أو الرقم السري غير صحيح');return}
- ME=r.data[0];
- if(ME.role==='aa')renderAA();else if(ME.role==='fa')renderFA();else renderEmp();
+ ME=r.data[0]; window._role=ME.role;
+ renderHome();
 }
 function logout(){ME=null;renderLogin()}
+
+// ---------- HOME (4 sections, role visibility) ----------
+function renderHome(){
+ const secs=[
+  {k:'requests',em:'🗂️',t:'الطلبات',show:true},
+  {k:'alerts',em:'🔔',t:'التنبيهات',show:true},
+  {k:'aa',em:'👑',t:'الإدارية',show:ME.role==='aa'},
+  {k:'fa',em:'💰',t:'المالية',show:ME.role==='fa'}
+ ];
+ $('app').innerHTML=`
+ <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
+  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+ <div class="grid4">
+  ${secs.filter(s=>s.show).map(s=>`<div class="icon-btn" onclick="openSection('${s.k}')"><span class="em">${s.em}</span><span class="t">${s.t}</span></div>`).join('')}
+ </div>
+ <p class="mut" style="margin-top:10px">أي صرف لازم يسبقه إخطار من هنا بكل التفاصيل والمستندات الخاصة بالحالة.</p>`;
+}
+function openSection(k){
+ if(k==='requests')renderEmp('home');
+ else if(k==='alerts')renderEmp('notif');
+ else if(k==='aa')renderAA();
+ else if(k==='fa')renderFA();
+}
 
 // ---------- GEO ----------
 function getLoc(){return new Promise(res=>{
@@ -131,8 +154,7 @@ async function renderEmp(tab){
    <div class="icon-btn" onclick="renderForm('maintenance')"><span class="em">🔧</span><span class="t">صيانة</span></div>
    <div class="icon-btn" onclick="renderForm('leave')"><span class="em">🌴</span><span class="t">إجازات</span></div>
    <div class="icon-btn" onclick="renderForm('schedule')"><span class="em">🕒</span><span class="t">جدول العمل</span></div>
-  </div>
-  <p class="mut" style="margin-top:10px">أي صرف لازم يسبقه إخطار من هنا بكل التفاصيل والمستندات الخاصة بالحالة.</p>`;
+  </div>`;
  }else if(tab==='mine'){
   body=D.requests.length?D.requests.map(r=>reqCard(r,true)).join(''):'<p class="mut">لا توجد طلبات بعد.</p>';
  }else{
@@ -140,11 +162,11 @@ async function renderEmp(tab){
  }
  $('app').innerHTML=`
  <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+  <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
  <div class="tabs">
-  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">🏠 الرئيسية</button>
+  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">🗂️ طلب جديد</button>
   <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">📄 طلباتي</button>
-  <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">🔔 إشعاراتي</button>
+  <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">🔔 التنبيهات</button>
  </div>
  <div class="card">${body}</div>`;
  window._pin=$('pin')?$('pin').value:window._pin;
@@ -212,7 +234,7 @@ function renderForm(kind,resubmit){
    <button class="btn" style="flex:2" id="sendBtn" onclick="submitReq('${kind}',${resubmit?`'${r.id}'`:'null'})">${resubmit?'إعادة إرسال':'إرسال الإخطار'}</button>
    <button class="btn ghost" style="flex:1" onclick="${resubmit?`renderEmp('mine')`:`renderEmp('home')`}">إلغاء</button>
   </div>
-  <p class="mut" style="margin-top:8px">عند الإرسال يُسجَّل موقعك التقريبي لمرة واحدة بإذنك، مع التاريخ والوقت.</p>
+  <p class="mut" style="margin-top:8px">إرسال الإخطار يتطلب إذن الموقع: يُسجَّل موقعك التقريبي لمرة واحدة عند الإرسال مع التاريخ والوقت.</p>
  </div>`;
  window._resubmitAtts=r.attachments||null;
 }
@@ -222,6 +244,7 @@ async function submitReq(kind,resubmitId){
  $('sendBtn').disabled=true;$('sendBtn').textContent='جارٍ الإرسال...';
  try{
   const loc=await getLoc();
+  if(loc.state==='denied'){show('err','إذن الموقع مطلوب لإرسال الإخطار. فعّل الموقع للمتصفح وحاول مرة أخرى.');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
   const files=$('f_files');let atts=window._resubmitAtts||[];
   if(files&&files.files.length)atts=atts.concat(await uploadFiles(files));
   const cat=$('f_cat')?$('f_cat').value:null;
@@ -259,8 +282,8 @@ async function renderAA(tab){
   body=`<div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ تصدير Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ طباعة / PDF</button></div><div id="repTable" style="margin-top:10px"></div>`;
  }
  $('app').innerHTML=`
- <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+ <div class="card"><b>👑 ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
+  <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
  <div class="tabs">
   <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">📥 الطلبات الواردة</button>
   <button class="${tab==='funding'?'on':''}" onclick="renderAA('funding')">💵 تحويلات التمويل</button>
@@ -379,14 +402,19 @@ function fundingForm(){
  <label>الجهة المحوِّلة</label><input id="fd_from" value="الإدارة المالية">
  <label>المبلغ (ج.م)</label><input id="fd_amount" type="number" inputmode="decimal">
  <label>التاريخ</label><input id="fd_date" type="date" value="${new Date().toISOString().slice(0,10)}">
- <label>الطريقة</label><select id="fd_method"><option>كاش</option><option>فودافون كاش</option><option>تحويل بنكي</option><option>انستاباي</option></select>
+ <label>طريقة التحويل</label><select id="fd_method"><option>كاش</option><option>فودافون كاش</option><option>تحويل بنكي</option><option>انستاباي</option></select>
  <label>رقم المحفظة / المرجع</label><input id="fd_ref">
+ <label>رقم المستلم</label><input id="fd_recipient" inputmode="tel">
+ <label>إثبات التحويل (صورة/مستند)</label><input id="fd_proof" type="file" accept="image/*,.pdf">
  <label>ملاحظة</label><input id="fd_note">
  <button class="btn" onclick="addFunding()">تسجيل التحويل</button>
  <h3 class="sec" style="margin-top:16px">التحويلات المسجلة (تجميع شهري مع الحفاظ على كل دفعة)</h3>`;
 }
 async function addFunding(){
- const r=await sb.rpc('funding_add',{p_code:ME.code,p_pin:window._pin,p_from_name:$('fd_from').value,p_amount:Number($('fd_amount').value||0),p_transfer_date:$('fd_date').value,p_method:$('fd_method').value,p_reference:$('fd_ref').value||null,p_note:$('fd_note').value||null});
+ let proof=[];
+ const pf=$('fd_proof');
+ if(pf&&pf.files.length)proof=await uploadFiles(pf);
+ const r=await sb.rpc('funding_add',{p_code:ME.code,p_pin:window._pin,p_from_name:$('fd_from').value,p_amount:Number($('fd_amount').value||0),p_transfer_date:$('fd_date').value,p_method:$('fd_method').value,p_reference:$('fd_ref').value||null,p_recipient_number:$('fd_recipient').value||null,p_proof:proof,p_note:$('fd_note').value||null});
  if(r.error){show('ferr','خطأ: '+r.error.message);return}
  show('fok','تم التسجيل');loadFunding();
 }
@@ -398,7 +426,7 @@ async function loadFunding(){
  $('fundList').innerHTML=Object.keys(months).sort().reverse().map(m=>{
   const rows=months[m];const tot=rows.reduce((s,f)=>s+Number(f.amount),0);
   return `<p><b>شهر ${m}</b> — الإجمالي: <b>${fmtMoney(tot)}</b> (${rows.length} دفعة)</p>`+
-   rows.map(f=>`<div class="req"><p>${fmtMoney(f.amount)} — ${esc(f.method||'')} ${f.reference?'· مرجع '+esc(f.reference):''}</p><p class="mut">${fmtDate(f.transfer_date)} · من ${esc(f.from_name||'')} ${f.note?'· '+esc(f.note):''}</p></div>`).join('');
+   rows.map(f=>`<div class="req"><p>${fmtMoney(f.amount)} — ${esc(f.method||'')} ${f.reference?'· مرجع '+esc(f.reference):''} ${f.recipient_number?'· المستلم '+esc(f.recipient_number):''}</p>${attLinks(f.proof)}<p class="mut">${fmtDate(f.transfer_date)} · من ${esc(f.from_name||'')} ${f.note?'· '+esc(f.note):''}</p></div>`).join('');
  }).join('')||'<p class="mut">لا تحويلات مسجلة.</p>';
 }
 
@@ -434,8 +462,8 @@ async function renderFA(){
    </div><div id="hist-${r.id}"></div>
   </div>`).join(''):'<p class="mut">لا مستندات بانتظار المراجعة.</p>';
  $('app').innerHTML=`
- <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+ <div class="card"><b>💰 ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
+  <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
  <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
 }
 async function faAct(id,action){
