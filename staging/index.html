@@ -97,6 +97,7 @@ const IC={
  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'};
+IC.archive='<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/>';
 function ic(n,sz){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle">${IC[n]||''}</svg>`}
 const STATUS={pending:['قيد المراجعة','c-pending'],approved:['تمت الموافقة','c-approved'],rejected:['مرفوض','c-rejected'],returned:['مطلوب استكمال','c-returned'],paid:['تم الصرف','c-paid'],awaiting_fa:['بانتظار المراجعة المالية','c-awaiting_fa'],closed:['مقفول ماليًا','c-closed']};
 const KINDS={settlement:'تسوية مستحقات',maintenance:'صيانة',leave:'إجازة',schedule:'جدول العمل'};
@@ -144,7 +145,8 @@ async function renderHome(){
   {k:'requests',icn:'doc',t:'الإخطارات',show:ME.role!=='fa'&&ME.role!=='aa'},
   {k:'aa',icn:'users',t:'الشؤون الإدارية',show:ME.role==='aa'},
   {k:'fa',icn:'money',t:'الشؤون المالية',show:ME.role==='fa'},
-  {k:'alerts',icn:'bell',t:'التنبيهات',show:true}
+  {k:'alerts',icn:'bell',t:'التنبيهات',show:true},
+  {k:'archive',icn:'archive',t:'أرشيف',show:ME.role==='aa'||ME.role==='fa'}
  ];
  $('app').innerHTML=`
  <div class="card head-row"><span><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span></span>
@@ -159,6 +161,7 @@ function openSection(k){
  else if(k==='alerts')(ME.role==='fa'?renderFAAlerts():renderEmp('notif'));
  else if(k==='aa')renderAA();
  else if(k==='fa')renderFA();
+ else if(k==='archive')(ME.role==='fa'?renderFAArchive():renderAAArchive());
 }
 
 // ---------- GEO ----------
@@ -383,7 +386,7 @@ async function submitReq(kind,resubmitId){
 
 // ---------- AA ----------
 async function renderAA(tab){
- tab=tab||'queue';
+ tab=tab||'queue';window._batchCode=null;
  let body='';
  if(tab==='queue'){
   const cu=await sb.rpc('aa_closed_unsent',{p_code:ME.code,p_pin:window._pin});
@@ -398,7 +401,7 @@ async function renderAA(tab){
    body+=list.length?list.map(r=>aaCard(r)).join(''):'<p class="mut">لا طلبات بانتظار المراجعة حاليًا. الطلبات التي عالجتها موجودة أدناه وفي التقارير.</p>';
    const rp=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
    if(!rp.error&&rp.data){
-    const done=rp.data.filter(r=>r.status!=='pending').sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+    const done=rp.data.filter(r=>r.status!=='pending'&&!r.aa_archived).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
     body+='<h3 class="sec">كل الطلبات الأخرى حسب الحالة ('+done.length+')</h3>'+(done.length?done.map(r=>`<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]||''} <span class="chip ${(STATUS[r.status]||['',''])[1]}">${(STATUS[r.status]||[r.status])[0]}</span></h4><p class="mut">${esc((r.details||'').slice(0,80))} ${r.amount!=null?'— '+r.amount:''} — ${(r.created_at||'').slice(0,10)}</p></div>`).join(''):'<p class="mut">لا شيء بعد.</p>');
    }
   }
@@ -651,20 +654,20 @@ async function loadReports(){
  renderRepTable();
 }
 function exportXlsx(){
- const rows=repFiltered().map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'طريقة الصرف':r.paid_method||'','رقم المستلم':r.paid_recipient||'','تاريخ المستند':r.request_date||'','تاريخ التقديم':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details}));
+ const rows=repFiltered().map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'طريقة الصرف':r.paid_method||'','رقم المستلم':r.paid_recipient||'','تاريخ المستند':r.request_date||'','تاريخ التقديم':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details,...(window._batchCode?{'كود الشيت':window._batchCode}:{})}));
  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,ws,'الطلبات');XLSX.writeFile(wb,'bgc-hub-requests.xlsx');
+ XLSX.utils.book_append_sheet(wb,ws,'الطلبات');XLSX.writeFile(wb,window._batchCode?('bgc-hub-'+window._batchCode+'.xlsx'):'bgc-hub-requests.xlsx');
 }
 
 // ---------- FA ----------
 async function renderFA(){
  const [q,bq,aq]=await Promise.all([sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin}),sb.rpc('fa_batches',{p_code:ME.code,p_pin:window._pin}),sb.rpc('fa_advances_list',{p_code:ME.code,p_pin:window._pin})]);
  const list=(q.data&&q.data.queue)||[];
- window._batches=bq.data||[];
+ window._batches=bq.data||[];const _work=window._batches.map((b,i)=>[b,i]).filter(([b])=>!b.archived);
  const BST={pending:['بانتظار المراجعة','c-awaiting_fa'],reviewed:['تمت المراجعة','c-closed'],returned:['أُعيدت للإدارية','c-returned']};
- const advs=aq.data||[];
+ window._allAdv=aq.data||[];const advs=window._allAdv.filter(a=>a.status==='open');
  const advHtml=advs.length?advs.map(a=>`<div class="req"><h4>${fmtMoney(a.amount)} <span class="chip ${a.status==='open'?'c-pending':'c-closed'}">${a.status==='open'?'مفتوحة':'مقفولة'}</span></h4><p class="mut">${esc(a.method||'')} · ${esc(a.number||'')} · ${fmtDate(a.date)}</p>${a.status==='open'?`<button class="btn ghost sm" onclick="closeAdvance('${a.id}')">إقفال السلفة</button>`:''}</div>`).join(''):'<p class="mut">لا سلف بعد.</p>';
- const batchHtml=window._batches.length?window._batches.map((b,i)=>`<div class="req"><h4>${new Date(b.created_at).toLocaleDateString('ar-EG')} — ${b.n} عملية · ${fmtMoney(b.total)} <span class="chip ${BST[b.status][1]}">${BST[b.status][0]}</span></h4>
+ const batchHtml=_work.length?_work.map(([b,i])=>`<div class="req"><h4><span class="chip c-pending" style="direction:ltr">${esc(b.code||'')}</span> ${new Date(b.created_at).toLocaleDateString('ar-EG')} — ${b.n} عملية · ${fmtMoney(b.total)} <span class="chip ${BST[b.status][1]}">${BST[b.status][0]}</span></h4>
   ${b.status==='returned'&&b.note?`<p class="mut">سبب الإرجاع: ${esc(b.note)}</p>`:''}
   <div class="row"><button class="btn ghost sm" onclick="openBatch(${i})">فتح Excel / PDF</button></div>
   ${b.status==='pending'?`<input id="bn-${b.id}" placeholder="سبب الإرجاع (إلزامي عند الإرجاع)"><div class="row"><button class="btn ok sm" onclick="reviewBatch('${b.id}','reviewed')">تمت المراجعة</button><button class="btn ret sm" onclick="reviewBatch('${b.id}','return')">إرجاع</button></div>`:''}</div>`).join(''):'<p class="mut">لا شيتات للمراجعة بعد.</p>';
@@ -697,10 +700,10 @@ async function aaSendClosed(btn){
  setTimeout(()=>renderAA('queue'),2500);
 }
 async function openBatch(i){
- const b=window._batches[i];_rep=b.requests||[];
+ const b=window._batches[i];_rep=b.requests||[];window._batchCode=b.code;
  $('app').innerHTML=`<div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
- <div class="tabs"><button onclick="renderFA()">${ic('home',14)} رجوع</button></div>
- <div class="card"><h3 class="sec dochead">عمليات مقفولة محوّلة من الشئون الإدارية — ${new Date(b.created_at).toLocaleDateString('ar-EG')}</h3>
+ <div class="tabs"><button onclick="${b.archived?'renderFAArchive()':'renderFA()'}">${ic('home',14)} رجوع</button></div>
+ <div class="card"><h3 class="sec dochead">شيت ${esc(b.code||'')} — ${new Date(b.created_at).toLocaleDateString('ar-EG')}</h3>
  <div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ PDF (المستندات فقط)</button></div><div id="repTable" class="docs-only" style="margin-top:10px"></div></div>`;
  renderRepTable();document.querySelector('.print-det').classList.add('show');
 }
@@ -727,6 +730,41 @@ async function sendAdvance(btn){
  $('adv_amt').value='';$('adv_num').value='';setTimeout(()=>renderFA(),2500);
 }
 
+
+function _norm(x){return String(x||'').toLowerCase().replace(/[\u064B-\u0652]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')}
+async function renderFAArchive(q){
+ q=q||'';
+ const [bq,aq]=await Promise.all([sb.rpc('fa_batches',{p_code:ME.code,p_pin:window._pin}),sb.rpc('fa_advances_list',{p_code:ME.code,p_pin:window._pin})]);
+ window._batches=bq.data||[];window._allAdv=aq.data||[];
+ const nq=_norm(q.trim());
+ const bs=window._batches.map((b,i)=>[b,i]).filter(([b])=>b.archived&&(!nq||_norm(b.code).includes(nq)));
+ const as=window._allAdv.filter(a=>a.status==='closed'&&(!nq||_norm([a.amount,a.number,a.method].join(' ')).includes(nq)));
+ const bh=bs.length?bs.map(([b,i])=>`<div class="req"><h4><span class="chip c-closed" style="direction:ltr">${esc(b.code||'')}</span> ${fmtDate(b.created_at)} — ${b.n} عملية · ${fmtMoney(b.total)}</h4><p class="mut">تمت المراجعة ${fmtDate(b.reviewed_at)}</p><div class="row"><button class="btn ghost sm" onclick="openBatch(${i})">فتح Excel / PDF</button><button class="btn ghost sm" onclick="restoreBatch('${b.id}')">إعادة للعمل</button></div></div>`).join(''):'<p class="mut">لا شيتات في الأرشيف'+(nq?' بهذا الكود':'')+'.</p>';
+ const ah=as.length?as.map(a=>`<div class="req"><h4>${fmtMoney(a.amount)} <span class="chip c-closed">مقفولة</span></h4><p class="mut">${esc(a.method||'')} · ${esc(a.number||'')} · ${fmtDate(a.date)}</p><button class="btn ghost sm" onclick="reopenAdvance('${a.id}')">إعادة فتح</button></div>`).join(''):'<p class="mut">لا سلف مقفولة'+(nq?' مطابقة':'')+'.</p>';
+ $('app').innerHTML=`<div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
+ <div class="tabs"><button onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+ <div class="card"><h3 class="sec">${ic('archive',16)} الأرشيف</h3><input id="arq" value="${esc(q)}" placeholder="ابحث بكود الشيت (مثال SH-0001)" oninput="clearTimeout(window._arT);window._arT=setTimeout(()=>renderFAArchive(document.getElementById('arq').value),350)">
+ <h3 class="sec">الشيتات المراجعة (${bs.length})</h3>${bh}<h3 class="sec">السلف المقفولة (${as.length})</h3>${ah}</div>`;
+ const el=$('arq');if(el&&q){el.focus();el.setSelectionRange(q.length,q.length)}
+}
+async function restoreBatch(id){const r=await sb.rpc('fa_batch_restore',{p_code:ME.code,p_pin:window._pin,p_batch:id});if(r.error){alert('خطأ: '+r.error.message);return}renderFAArchive();}
+async function reopenAdvance(id){const r=await sb.rpc('fa_advance_reopen',{p_code:ME.code,p_pin:window._pin,p_id:id});if(r.error){alert('خطأ: '+r.error.message);return}renderFAArchive();}
+async function renderAAArchive(q){
+ q=q||'';
+ const r=await sb.rpc('aa_archive_list',{p_code:ME.code,p_pin:window._pin});
+ const all=r.data||[];const nq=_norm(q.trim());
+ const list=all.filter(x=>!nq||_norm(x.employee_name).includes(nq));
+ const html=r.error?'<div class="err" style="display:block">تعذر تحميل الأرشيف: '+esc(r.error.message)+'</div>':(list.length?list.map(x=>`<div class="req"><h4>${esc(x.employee_name)} <span class="mut">${esc(x.job_title)} · ${esc(x.site)}</span></h4>
+  <p><b>${KINDS[x.kind]||''}</b> <span class="chip c-closed">مقفولة</span>${x.sheet_code?` <span class="chip c-pending" style="direction:ltr">${esc(x.sheet_code)}</span>`:''}</p>
+  ${x.category?`<p class="mut">${esc(x.category)}</p>`:''}<p>${esc(x.details||'')}</p>${x.amount?`<p>المبلغ: <b>${fmtMoney(x.amount)}</b></p>`:''}${x.paid_amount?`<p>صُرف: ${fmtMoney(x.paid_amount)} · ${esc(x.paid_method||'')} · ${fmtDate(x.paid_date)}</p>`:''}
+  ${attLinks(x.attachments)}<p class="mut">قُدّم في ${new Date(x.created_at).toLocaleString('ar-EG')}</p>
+  <div class="row"><button class="btn ghost sm" onclick="showHistory('${x.id}')">🕓 السجل</button><button class="btn ghost sm" onclick="restoreAAItem('${x.id}')">إعادة للعمل</button></div><div id="hist-${x.id}"></div></div>`).join(''):'<p class="mut">لا عناصر'+(nq?' بهذا الاسم':' في الأرشيف')+'.</p>');
+ $('app').innerHTML=`<div class="card"><b>${ic('users',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
+ <div class="tabs"><button onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+ <div class="card"><h3 class="sec">${ic('archive',16)} الأرشيف (${list.length})</h3><input id="arq" value="${esc(q)}" placeholder="ابحث باسم المهندس أو العامل" oninput="clearTimeout(window._arT);window._arT=setTimeout(()=>renderAAArchive(document.getElementById('arq').value),350)">${html}</div>`;
+ const el=$('arq');if(el&&q){el.focus();el.setSelectionRange(q.length,q.length)}
+}
+async function restoreAAItem(id){const r=await sb.rpc('aa_archive_restore',{p_code:ME.code,p_pin:window._pin,p_id:id});if(r.error){alert('خطأ: '+r.error.message);return}renderAAArchive();}
 async function closeAdvance(id){const r=await sb.rpc('fa_advance_close',{p_code:ME.code,p_pin:window._pin,p_id:id});if(r.error){alert('خطأ: '+r.error.message);return}renderFA();}
 async function reviewBatch(id,action){
  const note=($('bn-'+id)||{}).value||'';
