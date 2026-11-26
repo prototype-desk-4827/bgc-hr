@@ -352,18 +352,19 @@ async function submitReq(kind,resubmitId){
   const cat=$('f_cat')?$('f_cat').value:null;
   const catLabel=cat?(MCASES[cat]||LCASES[cat]||SCASES[cat]||cat):null;
   let details=$('f_details').value.trim();
-  if(kind==='leave'&&$('f_date2')&&$('f_date2').value)details='إلى '+$('f_date2').value+'\n'+details;
+  if(kind==='leave'&&$('f_date2')&&$('f_date2').value)details='من '+($('f_date').value||'—')+' إلى '+$('f_date2').value+'\n'+details;
   const amount=$('f_amount')&&$('f_amount').value?Number($('f_amount').value):null;
   const date=$('f_date')?$('f_date').value:null;
   if(!details&&!amount){show('err','اكتب التفاصيل أو المبلغ');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  if(!window._reqIdem)window._reqIdem=crypto.randomUUID();
   let r;
   if(resubmitId){
-   r=await sb.rpc('resubmit_request',{p_code:ME.code,p_pin:window._pin,p_request_id:resubmitId,p_details:details,p_amount:amount,p_notes:null,p_attachments:atts,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:loc.state==='granted'?'granted':null==='granted'?'granted':null});
+   r=await sb.rpc('resubmit_request',{p_code:ME.code,p_pin:window._pin,p_request_id:resubmitId,p_details:details,p_amount:amount,p_notes:null,p_attachments:atts,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:(loc.state==='granted'?'granted':null)});
   }else{
-   r=await sb.rpc('submit_request',{p_code:ME.code,p_pin:window._pin,p_kind:kind,p_category:catLabel,p_details:details,p_amount:amount,p_request_date:date,p_notes:null,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:loc.state,p_attachments:atts});
+   r=await sb.rpc('submit_request',{p_code:ME.code,p_pin:window._pin,p_kind:kind,p_category:catLabel,p_details:details,p_amount:amount,p_request_date:date,p_notes:null,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:loc.state,p_attachments:atts,p_idem:window._reqIdem});
   }
   if(r.error){show('err','خطأ: '+r.error.message);$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
-  window._resubmitAtts=null;
+  window._resubmitAtts=null;window._reqIdem=null;
   renderEmp('mine');
  }catch(e){show('err','خطأ: '+e.message);$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار'}
 }
@@ -431,9 +432,13 @@ async function aaAct(id,action){
 }
 async function loadAAApproved(){
  const rep=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
- const approved=(rep.data||[]).filter(r=>r.status==='approved'||r.status==='paid');
- if(!approved.length)return;
- const html='<h3 class="sec">بانتظار الصرف / الإحالة للمالية</h3>'+approved.map(r=>{
+ const FIN=k=>k==='settlement'||k==='maintenance';
+ const approved=(rep.data||[]).filter(r=>(r.status==='approved'||r.status==='paid')&&FIN(r.kind));
+ const nonfin=(rep.data||[]).filter(r=>r.status==='approved'&&!FIN(r.kind));
+ let html='';
+ if(nonfin.length)html+='<h3 class="sec">موافقات نهائية — لا صرف مطلوب</h3>'+nonfin.map(r=>`<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip c-approved">موافقة نهائية</span></h4><p class="mut">${esc(r.details||'')}</p></div>`).join('');
+ if(!approved.length){if(html)$('app').querySelector('.card:last-child').insertAdjacentHTML('beforeend',html);return;}
+ html+='<h3 class="sec">بانتظار الصرف / الإحالة للمالية</h3>'+approved.map(r=>{
   const st=STATUS[r.status];
   return `<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip ${st[1]}">${st[0]}</span></h4>
    <p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>
@@ -529,12 +534,13 @@ function fundingForm(){
 }
 async function addFunding(btn){
  if(btn){btn.disabled=true;setTimeout(()=>btn.disabled=false,4000);}
+ if(!window._fundIdem)window._fundIdem=crypto.randomUUID();
  let proof=[];
  const pf=$('fd_proof');
  if(pf&&pf.files.length)proof=await uploadFiles(pf);
- const r=await sb.rpc('funding_add',{p_code:ME.code,p_pin:window._pin,p_from_name:$('fd_from').value,p_amount:Number($('fd_amount').value||0),p_transfer_date:$('fd_date').value,p_method:$('fd_method').value,p_reference:$('fd_ref').value||null,p_recipient_number:$('fd_recipient').value||null,p_proof:proof,p_note:$('fd_note').value||null});
+ const r=await sb.rpc('funding_add',{p_code:ME.code,p_pin:window._pin,p_from_name:$('fd_from').value,p_amount:Number($('fd_amount').value||0),p_transfer_date:$('fd_date').value,p_method:$('fd_method').value,p_reference:$('fd_ref').value||null,p_recipient_number:$('fd_recipient').value||null,p_proof:proof,p_note:$('fd_note').value||null,p_idem:window._fundIdem});
  if(r.error){show('ferr','خطأ: '+r.error.message);return}
- show('fok','تم التسجيل');loadFunding();
+ show('fok','تم التسجيل');window._fundIdem=null;loadFunding();
 }
 async function loadFunding(){
  const r=await sb.rpc('funding_list',{p_code:ME.code,p_pin:window._pin});
