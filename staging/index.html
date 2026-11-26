@@ -381,9 +381,19 @@ async function renderAA(tab){
  tab=tab||'queue';
  let body='';
  if(tab==='queue'){
-  const q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});
-  const list=(q.data&&q.data.queue)||[];
-  body=list.length?list.map(r=>aaCard(r)).join(''):'<p class="mut">لا طلبات بانتظار المراجعة.</p>';
+  let q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});
+  if(q.error){await new Promise(r=>setTimeout(r,800));q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});}
+  if(q.error){
+   body='<div class="err" style="display:block">تعذر تحميل الطلبات (ليس معناه أن البيانات اختفت): '+esc(q.error.message||'خطأ اتصال')+'</div><div class="row"><button class="btn sm" onclick="renderAA(\'queue\')">إعادة المحاولة</button></div>';
+  }else{
+   const list=(q.data&&q.data.queue)||[];
+   body=list.length?list.map(r=>aaCard(r)).join(''):'<p class="mut">لا طلبات بانتظار المراجعة حاليًا. الطلبات التي عالجتها موجودة أدناه وفي التقارير.</p>';
+   const rp=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
+   if(!rp.error&&rp.data){
+    const done=rp.data.filter(r=>r.status!=='pending').sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+    body+='<h3 class="sec">كل الطلبات الأخرى حسب الحالة ('+done.length+')</h3>'+(done.length?done.map(r=>`<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]||''} <span class="chip ${(STATUS[r.status]||['',''])[1]}">${(STATUS[r.status]||[r.status])[0]}</span></h4><p class="mut">${esc((r.details||'').slice(0,80))} ${r.amount!=null?'— '+r.amount:''} — ${(r.created_at||'').slice(0,10)}</p></div>`).join(''):'<p class="mut">لا شيء بعد.</p>');
+   }
+  }
  }else if(tab==='funding'){
   body=fundingForm()+`<div id="fundList"></div>`;
  }else if(tab==='staff'){
