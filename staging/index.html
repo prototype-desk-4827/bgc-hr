@@ -17,6 +17,7 @@ body{background:var(--bg);color:var(--txt);min-height:100vh}
 .logo{width:44px;height:44px;border-radius:50%;flex:none}
 .top h1{font-size:20px}.top small{color:var(--mut);font-size:12px;display:block}
 .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #e3e3e3}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .btn{background:var(--accent2);color:#fff;border:0;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:700;cursor:pointer;width:100%}
 .btn.ghost{background:var(--card2);color:var(--txt)}
 .btn.ok{background:var(--ok)}.btn.bad{background:#b91c1c;color:#fff}.btn.warn{background:var(--warn);color:#1f2937}.btn.ret{background:var(--ret)}
@@ -29,7 +30,7 @@ label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
 .icon-btn span.t{font-size:14px;font-weight:700}
 .chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
 .c-pending{background:#fde68a;color:#78350f}.c-approved{background:#bbf7d0;color:#14532d}.c-rejected{background:#fecaca;color:#7f1d1d}.c-returned{background:#ddd6fe;color:#4c1d95}.c-paid{background:#a5f3fc;color:#164e63}.c-awaiting_fa{background:#fde68a;color:#78350f}.c-closed{background:#bbf7d0;color:#14532d}
-.req{background:var(--card2);border-radius:12px;padding:12px;margin-bottom:10px}
+.req{background:var(--card2);border-radius:12px;padding:12px;margin-bottom:10px;overflow:hidden}
 .req h4{font-size:15px;margin-bottom:4px}.req p{font-size:13px;color:var(--mut);white-space:pre-wrap}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .mut{color:var(--mut);font-size:12px}
@@ -40,7 +41,7 @@ label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
 .tabs button.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
 .tl{border-right:2px solid #ccc;padding-right:12px;margin:8px 0}
 .tl div{margin-bottom:8px;font-size:13px}.tl .mut{font-size:11px}
-.att a{color:var(--accent);font-size:12px;display:block}
+.att a{color:var(--accent);font-size:12px;display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-all;direction:ltr;text-align:right;unicode-bidi:plaintext}
 .demo{background:#fff;border:1px dashed #ccc;border-radius:12px;padding:10px;font-size:12px;color:var(--mut);margin-top:12px}
 table.rep{width:100%;border-collapse:collapse;font-size:12px}
 table.rep th,table.rep td{border:1px solid #ccc;padding:6px;text-align:right}
@@ -116,7 +117,7 @@ function renderHome(){
  ];
  $('app').innerHTML=`
  <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+  <button class="btn ghost sm" style="margin-inline-start:auto;flex:none" onclick="logout()">خروج</button></div>
  <div class="grid4">
   ${secs.filter(s=>s.show).map(s=>`<div class="icon-btn" onclick="openSection('${s.k}')"><span class="em">${ic(s.icn,30)}</span><span class="t">${s.t}</span></div>`).join('')}
  </div>
@@ -199,7 +200,7 @@ async function renderEmp(tab){
  }
  $('app').innerHTML=`
  <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+  <button class="btn ghost sm" style="margin-inline-start:auto;flex:none" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="tabs">
   <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">${ic('doc',14)} إخطار جديد</button>
   <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">${ic('inbox',14)} إخطاراتي</button>
@@ -326,7 +327,7 @@ async function renderAA(tab){
  }
  $('app').innerHTML=`
  <div class="card"><b>${ic('users',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+  <button class="btn ghost sm" style="margin-inline-start:auto;flex:none" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="tabs">
   <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">${ic('inbox',14)} الطلبات الواردة</button>
   <button class="${tab==='funding'?'on':''}" onclick="renderAA('funding')">${ic('money',14)} تحويلات التمويل</button>
@@ -506,7 +507,7 @@ async function renderFA(){
   </div>`).join(''):'<p class="mut">لا مستندات بانتظار المراجعة.</p>';
  $('app').innerHTML=`
  <div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+  <button class="btn ghost sm" style="margin-inline-start:auto;flex:none" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
 }
 async function faAct(id,action){
