@@ -140,7 +140,7 @@ async function alertCount(){
 async function renderHome(){
  const nAlerts=await alertCount();
  const secs=[
-  {k:'requests',icn:'doc',t:'الإخطارات',show:ME.role!=='fa'},
+  {k:'requests',icn:'doc',t:'الإخطارات',show:ME.role!=='fa'&&ME.role!=='aa'},
   {k:'alerts',icn:'bell',t:'التنبيهات',show:true},
   {k:'aa',icn:'users',t:'الشؤون الإدارية',show:ME.role==='aa'},
   {k:'fa',icn:'money',t:'الشؤون المالية',show:ME.role==='fa'}
