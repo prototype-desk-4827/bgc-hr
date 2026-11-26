@@ -63,6 +63,18 @@ const SB_KEY='sb_publishable_5d7CgDrhZiYgSmJeWObr7A_WqdQtPAe';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 let ME=null;
+const IC={
+ doc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+ bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+ users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+ money:'<rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M5 8h.01M19 16h.01"/>',
+ inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+ chart:'<path d="M3 3v18h18"/><path d="M18 20V10M12 20V4M6 20v-6"/>',
+ home:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+ wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+ cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+ clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'};
+function ic(n,sz){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle">${IC[n]||''}</svg>`}
 const STATUS={pending:['قيد المراجعة','c-pending'],approved:['تمت الموافقة','c-approved'],rejected:['مرفوض','c-rejected'],returned:['مطلوب استكمال','c-returned'],paid:['تم الصرف','c-paid'],awaiting_fa:['بانتظار المراجعة المالية','c-awaiting_fa'],closed:['مقفول ماليًا','c-closed']};
 const KINDS={settlement:'تسوية مستحقات',maintenance:'صيانة',leave:'إجازة',schedule:'جدول العمل'};
 const MCASES={invoice_ready:'فاتورة جاهزة للصرف',needs_funding:'تحتاج تمويل قبل الإصلاح',self_paid:'دفعت من جيبي وأطلب الاسترداد'};
@@ -97,16 +109,16 @@ function logout(){ME=null;renderLogin()}
 // ---------- HOME (4 sections, role visibility) ----------
 function renderHome(){
  const secs=[
-  {k:'requests',em:'🗂️',t:'الإخطارات',show:true},
-  {k:'alerts',em:'🔔',t:'التنبيهات',show:true},
-  {k:'aa',em:'👑',t:'الإدارية',show:ME.role==='aa'},
-  {k:'fa',em:'💰',t:'المالية',show:ME.role==='fa'}
+  {k:'requests',icn:'doc',t:'الإخطارات',show:true},
+  {k:'alerts',icn:'bell',t:'التنبيهات',show:true},
+  {k:'aa',icn:'users',t:'الشؤون الإدارية',show:ME.role==='aa'},
+  {k:'fa',icn:'money',t:'الشؤون المالية',show:ME.role==='fa'}
  ];
  $('app').innerHTML=`
  <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
   <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
  <div class="grid4">
-  ${secs.filter(s=>s.show).map(s=>`<div class="icon-btn" onclick="openSection('${s.k}')"><span class="em">${s.em}</span><span class="t">${s.t}</span></div>`).join('')}
+  ${secs.filter(s=>s.show).map(s=>`<div class="icon-btn" onclick="openSection('${s.k}')"><span class="em">${ic(s.icn,30)}</span><span class="t">${s.t}</span></div>`).join('')}
  </div>
  <p class="mut" style="margin-top:10px">أي صرف لازم يسبقه إخطار من هنا بكل التفاصيل والمستندات الخاصة بالحالة.</p>`;
 }
@@ -160,9 +172,9 @@ async function renderEmp(tab){
  let body='';
  if(tab==='home'){
   body=`<div class="grid4">
-   <div class="icon-btn" onclick="renderForm('settlement')"><span class="em">💰</span><span class="t">تسوية مستحقات</span></div>
-   <div class="icon-btn" onclick="renderForm('maintenance')"><span class="em">🔧</span><span class="t">صيانة</span></div>
-   <div class="icon-btn" onclick="renderForm('leave')"><span class="em">🌴</span><span class="t">إجازات</span></div>
+   <div class="icon-btn" onclick="renderForm('settlement')"><span class="em">${ic('money',30)}</span><span class="t">تسوية مستحقات</span></div>
+   <div class="icon-btn" onclick="renderForm('maintenance')"><span class="em">${ic('wrench',30)}</span><span class="t">صيانة</span></div>
+   <div class="icon-btn" onclick="renderForm('leave')"><span class="em">${ic('cal',30)}</span><span class="t">إجازات</span></div>
    <div class="icon-btn" onclick="renderForm('schedule')"><span class="em">🕒</span><span class="t">جدول العمل</span></div>
   </div>`;
  }else if(tab==='mine'){
@@ -172,11 +184,11 @@ async function renderEmp(tab){
  }
  $('app').innerHTML=`
  <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
+  <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="tabs">
-  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">🗂️ إخطار جديد</button>
-  <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">📄 إخطاراتي</button>
-  <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">🔔 التنبيهات</button>
+  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">${ic('doc',14)} إخطار جديد</button>
+  <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">${ic('inbox',14)} إخطاراتي</button>
+  <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">${ic('bell',14)} التنبيهات</button>
  </div>
  <div class="card">${body}</div>`;
 }
@@ -192,6 +204,7 @@ function reqCard(r,mine){
   ${r.category?`<p class="mut">${esc(r.category)}</p>`:''}
   <p>${esc(r.details||'')}</p>
   ${r.amount?`<p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>`:''}
+  ${r.request_date?`<p class="mut">تاريخ المستند: ${esc(r.request_date)}</p>`:''}
   ${attLinks(r.attachments)}
   ${extra}
   <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">الموقع</a>`:''}</p>
@@ -220,7 +233,8 @@ function renderForm(kind,resubmit){
      <label>تفاصيل التسوية (الفترة، بنود الاستحقاق...)</label><textarea id="f_details" rows="3">${esc(r.details||'')}</textarea>
      <label>مرفقات (كشوف/مستندات)</label><input id="f_files" type="file" multiple>`;
  }else if(kind==='maintenance'){
-  f=`<label>نوع الحالة</label><select id="f_cat">${Object.entries(MCASES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+  f=`<label>تاريخ الفاتورة/المستند</label><input id="f_date" type="date" value="${r.request_date||new Date().toISOString().slice(0,10)}">
+     <label>نوع الحالة</label><select id="f_cat">${Object.entries(MCASES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
      <label>وصف الحالة والموقع</label><textarea id="f_details" rows="3" placeholder="مثال: تسريب في دورة المياه بالدور الثاني — موقع الشروق">${esc(r.details||'')}</textarea>
      <label>المبلغ (إن وُجد، ج.م)</label><input id="f_amount" type="number" inputmode="decimal" value="${r.amount||''}">
      <label>مرفقات (صور العطل / الفاتورة)</label><input id="f_files" type="file" multiple accept="image/*,.pdf">`;
@@ -293,12 +307,12 @@ async function renderAA(tab){
  }
  $('app').innerHTML=`
  <div class="card"><b>👑 ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
+  <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="tabs">
-  <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">📥 الطلبات الواردة</button>
-  <button class="${tab==='funding'?'on':''}" onclick="renderAA('funding')">💵 تحويلات التمويل</button>
-  <button class="${tab==='staff'?'on':''}" onclick="renderAA('staff')">👥 الموظفون</button>
-  <button class="${tab==='rep'?'on':''}" onclick="renderAA('rep')">📊 التقارير</button>
+  <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">${ic('inbox',14)} الطلبات الواردة</button>
+  <button class="${tab==='funding'?'on':''}" onclick="renderAA('funding')">${ic('money',14)} تحويلات التمويل</button>
+  <button class="${tab==='staff'?'on':''}" onclick="renderAA('staff')">${ic('users',14)} الموظفون</button>
+  <button class="${tab==='rep'?'on':''}" onclick="renderAA('rep')">${ic('chart',14)} التقارير</button>
  </div>
  <div class="card">${body}</div>`;
  if(tab==='staff')loadStaff();
@@ -445,11 +459,11 @@ let _rep=[];
 async function loadReports(){
  const r=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
  _rep=r.data||[];
- $('repTable').innerHTML=`<table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>التاريخ</th></tr>`+
-  _rep.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>';
+ $('repTable').innerHTML=`<table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>تاريخ المستند</th><th>تاريخ التقديم</th></tr>`+
+  _rep.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${r.request_date||''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>';
 }
 function exportXlsx(){
- const rows=_rep.map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'التاريخ':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details}));
+ const rows=_rep.map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'تاريخ المستند':r.request_date||'','تاريخ التقديم':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details}));
  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,'الطلبات');XLSX.writeFile(wb,'bgc-hub-requests.xlsx');
 }
@@ -473,7 +487,7 @@ async function renderFA(){
   </div>`).join(''):'<p class="mut">لا مستندات بانتظار المراجعة.</p>';
  $('app').innerHTML=`
  <div class="card"><b>💰 ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
-  <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
+  <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
 }
 async function faAct(id,action){
