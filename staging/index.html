@@ -95,7 +95,7 @@ function renderLogin(){
   <label>كود الموظف</label><input id="code" placeholder="BGC-001" autocomplete="off">
   <label>كود الدخول السري</label><input id="pin" type="password" placeholder="••••" autocomplete="off">
   <button class="btn" onclick="doLogin()">دخول</button>
-  <div class="demo">حسابات تجريبية — موظف: BGC-001 / K7X2P9QA · إدارية: BGC-AA / M4T8W2ZB · مالية: BGC-FA / R6N3V8YD<br>كل البيانات الحالية بيانات افتراضية للتجربة فقط.</div>
+  <div class="demo">حسابات تجريبية — موظف: BGC-001 / K7X2P9QA · إدارية: BGC-AA / M4T8W2ZB · مالية: BGC-FA / R6N3V8YD<br>كل البيانات الحالية بيانات افتراضية للتجربة فقط.<br><span style="display:block;margin-top:6px;text-align:center;font-weight:700">إعداد merna tarek</span></div>
  </div>`;
 }
 async function doLogin(){
@@ -222,7 +222,7 @@ function reqCard(r,mine){
   ${r.request_date?`<p class="mut">تاريخ المستند: ${esc(r.request_date)}</p>`:''}
   ${attLinks(r.attachments)}
   ${extra}
-  <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">الموقع</a>`:''}</p>
+  <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'&&r.lat?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">الموقع</a>`:''}</p>
   <div class="row"><button class="btn ghost sm" onclick="showHistory('${r.id}')">🕓 السجل</button></div>
   <div id="hist-${r.id}"></div>
  </div>`;
@@ -271,13 +271,13 @@ function renderForm(kind,resubmit){
   ${f}
   <div id="locStat" style="display:none;margin-bottom:10px"></div>
   <div class="row">
-   <button class="btn ghost sm" type="button" onclick="checkLoc()">📍 تحقق من الموقع</button>
+   <button class="btn ghost sm" type="button" onclick="checkLoc()">📍 أرفق موقعي الحالي (اختياري)</button>
   </div>
   <div class="row">
    <button class="btn" style="flex:2" id="sendBtn" onclick="submitReq('${kind}',${resubmit?`'${r.id}'`:'null'})">${resubmit?'إعادة إرسال':'إرسال الإخطار'}</button>
    <button class="btn ghost" style="flex:1" onclick="${resubmit?`renderEmp('mine')`:`renderEmp('home')`}">إلغاء</button>
   </div>
-  <p class="mut" style="margin-top:8px">إرسال الإخطار يتطلب إذن الموقع: يُسجَّل موقعك التقريبي لمرة واحدة عند الإرسال مع التاريخ والوقت.</p>
+  <p class="mut" style="margin-top:8px">إرفاق الموقع اختياري: أرفقه فقط إذا طلبته الشؤون الإدارية، ويُسجَّل حينها موقعك التقريبي لمرة واحدة مع التاريخ والوقت.</p>
  </div>`;
  window._resubmitAtts=r.attachments||null;
 }
@@ -286,8 +286,7 @@ function renderResubmit(r){renderForm(r.kind==='maintenance'?'maintenance':r.kin
 async function submitReq(kind,resubmitId){
  $('sendBtn').disabled=true;$('sendBtn').textContent='جارٍ الإرسال...';
  try{
-  let loc=(window._preLoc&&(Date.now()-(window._preLocAt||0)<120000))?window._preLoc:await getLoc();
-  if(loc.state!=='granted'){show('err',(LOC_MSG[loc.state]||LOC_MSG.unavailable)+' (رمز '+(loc.code??'?')+')');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  let loc=(window._preLoc&&(Date.now()-(window._preLocAt||0)<120000))?window._preLoc:{state:'not_provided'};
   window._preLoc=null;
   const files=$('f_files');let atts=window._resubmitAtts||[];
   if(files&&files.files.length)atts=atts.concat(await uploadFiles(files));
@@ -300,7 +299,7 @@ async function submitReq(kind,resubmitId){
   if(!details&&!amount){show('err','اكتب التفاصيل أو المبلغ');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
   let r;
   if(resubmitId){
-   r=await sb.rpc('resubmit_request',{p_code:ME.code,p_pin:window._pin,p_request_id:resubmitId,p_details:details,p_amount:amount,p_notes:null,p_attachments:atts});
+   r=await sb.rpc('resubmit_request',{p_code:ME.code,p_pin:window._pin,p_request_id:resubmitId,p_details:details,p_amount:amount,p_notes:null,p_attachments:atts,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:loc.state==='granted'?'granted':null==='granted'?'granted':null});
   }else{
    r=await sb.rpc('submit_request',{p_code:ME.code,p_pin:window._pin,p_kind:kind,p_category:catLabel,p_details:details,p_amount:amount,p_request_date:date,p_notes:null,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:loc.state,p_attachments:atts});
   }
@@ -350,7 +349,7 @@ function aaCard(r){
   <p>${esc(r.details||'')}</p>
   ${r.amount?`<p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>`:''}
   ${attLinks(r.attachments)}
-  <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">موقع الإرسال</a>`:' · الموقع: '+(r.location_state==='denied'?'مرفوض':'غير متاح')}</p>
+  <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">موقع الإرسال</a>`:' · لم يُرفق موقع'}</p>
   <input id="rs-${r.id}" placeholder="سبب / ملاحظة (إلزامي للإرجاع)">
   <div class="row">
    <button class="btn ok sm" onclick="aaAct('${r.id}','approve')">✅ موافقة</button>
