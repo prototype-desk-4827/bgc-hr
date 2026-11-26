@@ -193,6 +193,7 @@ function reqCard(r,mine){
   <p>${esc(r.details||'')}</p>
   ${r.amount?`<p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>`:''}
   ${attLinks(r.attachments)}
+  ${extra}
   <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">الموقع</a>`:''}</p>
   <div class="row"><button class="btn ghost sm" onclick="showHistory('${r.id}')">🕓 السجل</button></div>
   <div id="hist-${r.id}"></div>
