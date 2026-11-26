@@ -270,7 +270,7 @@ function reqCard(r,mine){
  let extra='';
  if(r.status==='returned'&&mine)extra+=`<div class="err" style="display:block">ملاحظة الإدارية: ${esc(r.return_reason||'')}</div>
   <div class="row"><button class="btn ret sm" onclick='renderResubmit(${JSON.stringify(r)})'>✏️ استكمال وإعادة إرسال</button></div>`;
- if(r.status==='paid'||r.status==='awaiting_fa'||r.status==='closed')extra+=`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} بتاريخ ${fmtDate(r.paid_date)} (${esc(r.paid_method||'—')})</p>`;
+ if(r.status==='paid'||r.status==='awaiting_fa'||r.status==='closed')extra+=`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} بتاريخ ${fmtDate(r.paid_date)} (${esc(r.paid_method||'—')})${r.paid_recipient?` · المستلم ${esc(r.paid_recipient)}`:''}</p>${attLinks(r.paid_proof&&r.paid_proof.length?r.paid_proof.map(p=>({name:'إثبات الصرف: '+p.name,data:p.data})):null)}`;
  return `<div class="req" id="req-${r.id}">
   <h4>${KINDS[r.kind]||r.kind} <span class="chip ${st[1]}">${st[0]}</span>${r.revision_no>1?` <span class="mut">مراجعة ${r.revision_no}</span>`:''}</h4>
   ${r.category?`<p class="mut">${esc(r.category)}</p>`:''}
@@ -379,7 +379,12 @@ async function renderAA(tab){
  }else if(tab==='staff'){
   body=staffForm()+`<div id="staffList" style="margin-top:12px"></div>`;
  }else{
-  body=`<div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ تصدير Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ طباعة / PDF</button></div><div id="repTable" style="margin-top:10px"></div>`;
+  body=`<div class="row no-print" style="align-items:flex-end">
+   <div><label class="mut" style="font-size:12px">النوع</label><select id="rep_kind" onchange="renderRepTable()"><option value="">الكل</option><option value="settlement">تسوية مستحقات</option><option value="maintenance">صيانة</option><option value="leave">إجازات</option><option value="schedule">جدول العمل</option></select></div>
+   <div><label class="mut" style="font-size:12px">من</label><input id="rep_from" type="date" onchange="renderRepTable()"></div>
+   <div><label class="mut" style="font-size:12px">إلى</label><input id="rep_to" type="date" onchange="renderRepTable()"></div>
+  </div>
+  <div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ تصدير Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ طباعة / PDF</button></div><div id="repTable" style="margin-top:10px"></div>`;
  }
  $('app').innerHTML=`
  <div class="card"><b>${ic('users',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
@@ -430,7 +435,11 @@ async function loadAAApproved(){
   const st=STATUS[r.status];
   return `<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip ${st[1]}">${st[0]}</span></h4>
    <p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>
-   ${r.status==='approved'?`<div class="row"><input id="pm-${r.id}" placeholder="المبلغ الفعلي" type="number" style="width:110px"><input id="pmd-${r.id}" placeholder="طريقة الصرف" style="width:130px"><button class="btn ok sm" onclick="aaPay('${r.id}')">💸 تسجيل صرف</button></div>`
+   ${r.status==='approved'?`<div style="border:1px dashed #ccc;border-radius:10px;padding:8px;margin-top:6px">
+    <div class="row"><input id="pm-${r.id}" placeholder="المبلغ الفعلي" type="number" inputmode="decimal" style="width:110px"><input id="pdt-${r.id}" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="row"><select id="pmd-${r.id}"><option>كاش</option><option>فودافون كاش</option><option>تحويل بنكي</option><option>انستاباي</option></select><input id="prc-${r.id}" placeholder="رقم المستلم" inputmode="tel" style="width:140px"></div>
+    <div class="row"><label class="mut" style="font-size:12px">إثبات الصرف:</label><input id="ppf-${r.id}" type="file" accept="image/*,.pdf" style="font-size:12px"></div>
+    <button class="btn ok sm" onclick="aaPay('${r.id}')">💸 تسجيل صرف</button></div>`
    :`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} · ${esc(r.paid_method||'')} · ${fmtDate(r.paid_date)}</p><div class="row"><button class="btn warn sm" onclick="aaSendFa('${r.id}')">📤 إحالة للمراجعة المالية</button></div>`}
   </div>`;
  }).join('');
@@ -439,7 +448,12 @@ async function loadAAApproved(){
 async function aaPay(id){
  const amt=$('pm-'+id).value?Number($('pm-'+id).value):null;
  const method=$('pmd-'+id).value||'كاش';
- const r=await sb.rpc('aa_decide',{p_code:ME.code,p_pin:window._pin,p_request_id:id,p_action:'paid',p_reason:null,p_paid:{amount:amt,method:method}});
+ const dt=$('pdt-'+id).value||null;
+ const recip=$('prc-'+id).value||null;
+ let proof=[];
+ const pf=$('ppf-'+id);
+ if(pf&&pf.files.length)proof=await uploadFiles(pf);
+ const r=await sb.rpc('pay_request',{p_code:ME.code,p_pin:window._pin,p_request_id:id,p_amount:amt,p_method:method,p_date:dt,p_recipient:recip,p_proof:proof});
  if(r.error){alert('خطأ: '+r.error.message);return}
  renderAA('queue');
 }
@@ -521,9 +535,13 @@ async function addFunding(){
 async function loadFunding(){
  const r=await sb.rpc('funding_list',{p_code:ME.code,p_pin:window._pin});
  const list=r.data||[];
+ const rep=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
+ const disb=(rep.data||[]).filter(x=>['paid','awaiting_fa','closed'].includes(x.status)).reduce((t,x)=>t+Number(x.paid_amount||0),0);
+ const fundTot=list.reduce((t,x)=>t+Number(x.amount||0),0);
+ $('fundList').innerHTML=`<div class="req" style="background:#fff"><p>إجمالي التمويل: <b>${fmtMoney(fundTot)}</b> · إجمالي المصروف: <b>${fmtMoney(disb)}</b> · المتبقي: <b style="color:${fundTot-disb<0?'#dc2626':'#16a34a'}">${fmtMoney(fundTot-disb)}</b></p></div><div id="fundMonths"></div>`;
  const months={};
  list.forEach(f=>{const m=(f.transfer_date||'').slice(0,7);(months[m]=months[m]||[]).push(f)});
- $('fundList').innerHTML=Object.keys(months).sort().reverse().map(m=>{
+ $('fundMonths').innerHTML=Object.keys(months).sort().reverse().map(m=>{
   const rows=months[m];const tot=rows.reduce((s,f)=>s+Number(f.amount),0);
   return `<p><b>شهر ${m}</b> — الإجمالي: <b>${fmtMoney(tot)}</b> (${rows.length} دفعة)</p>`+
    rows.map(f=>`<div class="req"><p>${fmtMoney(f.amount)} — ${esc(f.method||'')} ${f.reference?'· مرجع '+esc(f.reference):''} ${f.recipient_number?'· المستلم '+esc(f.recipient_number):''}</p>${attLinks(f.proof)}<p class="mut">${fmtDate(f.transfer_date)} · من ${esc(f.from_name||'')} ${f.note?'· '+esc(f.note):''}</p></div>`).join('');
@@ -532,14 +550,24 @@ async function loadFunding(){
 
 // reports
 let _rep=[];
+function repFiltered(){
+ const k=($('rep_kind')||{}).value||'';
+ const f=($('rep_from')||{}).value||'';
+ const t=($('rep_to')||{}).value||'';
+ return _rep.filter(r=>(!k||r.kind===k)&&(!f||(r.created_at||'').slice(0,10)>=f)&&(!t||(r.created_at||'').slice(0,10)<=t));
+}
+function renderRepTable(){
+ const rows=repFiltered();
+ $('repTable').innerHTML=`<p class="mut">${rows.length} طلب</p><table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>تاريخ المستند</th><th>تاريخ التقديم</th></tr>`+
+  rows.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${r.request_date||''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>';
+}
 async function loadReports(){
  const r=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
  _rep=r.data||[];
- $('repTable').innerHTML=`<table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>تاريخ المستند</th><th>تاريخ التقديم</th></tr>`+
-  _rep.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${r.request_date||''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>';
+ renderRepTable();
 }
 function exportXlsx(){
- const rows=_rep.map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'تاريخ المستند':r.request_date||'','تاريخ التقديم':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details}));
+ const rows=repFiltered().map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'طريقة الصرف':r.paid_method||'','رقم المستلم':r.paid_recipient||'','تاريخ المستند':r.request_date||'','تاريخ التقديم':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details}));
  const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,'الطلبات');XLSX.writeFile(wb,'bgc-hub-requests.xlsx');
 }
@@ -552,8 +580,9 @@ async function renderFA(){
   <div class="req">
    <h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip c-awaiting_fa">بانتظار المراجعة المالية</span></h4>
    <p>${esc(r.details||'')}</p>
-   <p>المبلغ المطلوب: ${fmtMoney(r.amount)} · المدفوع: <b>${fmtMoney(r.paid_amount)}</b> (${esc(r.paid_method||'—')} · ${fmtDate(r.paid_date)})</p>
+   <p>المبلغ المطلوب: ${fmtMoney(r.amount)} · المدفوع: <b>${fmtMoney(r.paid_amount)}</b> (${esc(r.paid_method||'—')} · ${fmtDate(r.paid_date)})${r.paid_recipient?` · المستلم <b>${esc(r.paid_recipient)}</b>`:''}</p>
    ${attLinks(r.attachments)}
+   ${r.paid_proof&&r.paid_proof.length?'<p class="mut">إثبات الصرف:</p>'+attLinks(r.paid_proof):''}
    <input id="fn-${r.id}" placeholder="ملاحظة المراجعة (إلزامية عند الإعادة)">
    <div class="row">
     <button class="btn ok sm" onclick="faAct('${r.id}','close')">🔒 مراجعة وقفل</button>
