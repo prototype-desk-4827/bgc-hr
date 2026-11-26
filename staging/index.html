@@ -271,7 +271,7 @@ async function renderEmp(tab,focusId){
   <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">${ic('bell',14)} التنبيهات${(D.requests||[]).filter(r=>r.status==='pending'||r.status==='returned').length?` <span class="badge inline">${(D.requests||[]).filter(r=>r.status==='pending'||r.status==='returned').length}</span>`:''}</button>
  </div>
  <div class="card">${body}</div>`;
- if(tab==='notif'&&(D.notifications||[]).some(n=>n.read===false))sb.rpc('mark_notifs_read',{p_code:ME.code,p_pin:window._pin});
+ if(tab==='notif'&&(D.notifications||[]).some(n=>n.read===false))sb.rpc('mark_notifs_read',{p_code:ME.code,p_pin:window._pin}).then(()=>{});
  if(focusId){const el=$('req-'+focusId);if(el){el.style.outline='2px solid var(--accent)';el.scrollIntoView({block:'center'});}}
 }
 
