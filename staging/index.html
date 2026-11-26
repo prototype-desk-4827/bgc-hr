@@ -132,7 +132,7 @@ function logout(){ME=null;renderLogin()}
 async function alertCount(){
  try{
   if(ME.role==='aa'){const q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});const ac=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});return ((q.data&&q.data.queue)||[]).length+(((ac.data&&ac.data.notifications)||[]).filter(n=>n.read===false).length);}
-  if(ME.role==='fa'){const q=await sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin});return ((q.data&&q.data.queue)||[]).length;}
+  if(ME.role==='fa'){const ac=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});return ((ac.data&&ac.data.notifications)||[]).filter(n=>n.read===false).length;}
   const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});
   return ((act.data&&act.data.requests)||[]).filter(r=>r.status==='pending'||r.status==='returned').length;
  }catch(e){return 0;}
@@ -140,7 +140,7 @@ async function alertCount(){
 async function renderHome(){
  const nAlerts=await alertCount();
  const secs=[
-  {k:'requests',icn:'doc',t:'الإخطارات',show:true},
+  {k:'requests',icn:'doc',t:'الإخطارات',show:ME.role!=='fa'},
   {k:'alerts',icn:'bell',t:'التنبيهات',show:true},
   {k:'aa',icn:'users',t:'الشؤون الإدارية',show:ME.role==='aa'},
   {k:'fa',icn:'money',t:'الشؤون المالية',show:ME.role==='fa'}
@@ -155,7 +155,7 @@ async function renderHome(){
 }
 function openSection(k){
  if(k==='requests')renderEmp('home');
- else if(k==='alerts')renderEmp('notif');
+ else if(k==='alerts')(ME.role==='fa'?renderFAAlerts():renderEmp('notif'));
  else if(k==='aa')renderAA();
  else if(k==='fa')renderFA();
 }
@@ -213,6 +213,8 @@ function attLinks(atts){
 // ---------- EMPLOYEE ----------
 function alClass(n,reqs){
  const t=n.text||'';
+ if(t.startsWith('الشؤون المالية أعادت'))return ['al-red','↩️ أعادتها الشؤون المالية'];
+ if(t.startsWith('الشؤون المالية:'))return ['al-green',ic('money',14)+' تمت المراجعة'];
  if(t.startsWith('سلفة'))return ['al-green',ic('money',14)+' سلفة جديدة من الشؤون المالية'];
  const req=reqs.find(r=>r.id===n.request_id);
  const st=req?req.status:null;
@@ -655,12 +657,17 @@ function exportXlsx(){
 
 // ---------- FA ----------
 async function renderFA(){
- const q=await sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin});
- const bq=await sb.rpc('fa_batches',{p_code:ME.code,p_pin:window._pin});
- window._batches=bq.data||[];
- const batchHtml=window._batches.length?window._batches.map((b,i)=>`<div class="req"><h4>تحويل من الشئون الإدارية <span class="mut">${new Date(b.created_at).toLocaleString('ar-EG')}</span></h4><p>${b.n} عملية مقفولة · الإجمالي ${fmtMoney(b.total)}</p><div class="row"><button class="btn sm" onclick="openBatch(${i})">فتح (Excel / PDF)</button></div></div>`).join(''):'<p class="mut">لا تحويلات من الشئون الإدارية بعد.</p>';
+ const [q,bq,aq]=await Promise.all([sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin}),sb.rpc('fa_batches',{p_code:ME.code,p_pin:window._pin}),sb.rpc('fa_advances_list',{p_code:ME.code,p_pin:window._pin})]);
  const list=(q.data&&q.data.queue)||[];
- const body=list.length?list.map(r=>`
+ window._batches=bq.data||[];
+ const BST={pending:['بانتظار المراجعة','c-awaiting_fa'],reviewed:['تمت المراجعة','c-closed'],returned:['أُعيدت للإدارية','c-returned']};
+ const advs=aq.data||[];
+ const advHtml=advs.length?advs.map(a=>`<div class="req"><h4>${fmtMoney(a.amount)} <span class="chip ${a.status==='open'?'c-pending':'c-closed'}">${a.status==='open'?'مفتوحة':'مقفولة'}</span></h4><p class="mut">${esc(a.method||'')} · ${esc(a.number||'')} · ${fmtDate(a.date)}</p>${a.status==='open'?`<button class="btn ghost sm" onclick="closeAdvance('${a.id}')">إقفال السلفة</button>`:''}</div>`).join(''):'<p class="mut">لا سلف بعد.</p>';
+ const batchHtml=window._batches.length?window._batches.map((b,i)=>`<div class="req"><h4>${new Date(b.created_at).toLocaleDateString('ar-EG')} — ${b.n} عملية · ${fmtMoney(b.total)} <span class="chip ${BST[b.status][1]}">${BST[b.status][0]}</span></h4>
+  ${b.status==='returned'&&b.note?`<p class="mut">سبب الإرجاع: ${esc(b.note)}</p>`:''}
+  <div class="row"><button class="btn ghost sm" onclick="openBatch(${i})">فتح Excel / PDF</button></div>
+  ${b.status==='pending'?`<input id="bn-${b.id}" placeholder="سبب الإرجاع (إلزامي عند الإرجاع)"><div class="row"><button class="btn ok sm" onclick="reviewBatch('${b.id}','reviewed')">تمت المراجعة</button><button class="btn ret sm" onclick="reviewBatch('${b.id}','return')">إرجاع</button></div>`:''}</div>`).join(''):'<p class="mut">لا شيتات للمراجعة بعد.</p>';
+ const single=list.length?`<h3 class="sec">طلبات مفردة بانتظار المراجعة (${list.length})</h3>`+list.map(r=>`
   <div class="req">
    <h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip c-awaiting_fa">بانتظار المراجعة المالية</span></h4>
    <p>${esc(r.details||'')}</p>
@@ -671,17 +678,14 @@ async function renderFA(){
    <div class="row">
     <button class="btn ok sm" onclick="faAct('${r.id}','close')">🔒 مراجعة وقفل</button>
     <button class="btn ret sm" onclick="faAct('${r.id}','return')">↩️ إعادة للإدارية</button>
-    <button class="btn ghost sm" onclick="showHistory('${r.id}')">🕓 السجل</button>
-   </div><div id="hist-${r.id}"></div>
-  </div>`).join(''):'<p class="mut">لا مستندات بانتظار المراجعة.</p>';
+   </div></div>`).join(''):'';
  $('app').innerHTML=`
  <div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
- <div class="tabs">
-  <button onclick="renderHome()">${ic('home',14)} الرئيسية</button>
- </div>
- ${advanceForm()}
- <div class="card"><h3 class="sec">محوّل للمراجعة من الشئون الإدارية</h3>${batchHtml}</div>
- <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
+ <div class="tabs"><button onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+ <div class="card"><h3 class="sec">${ic('money',16)} السلف المرسلة للإدارية</h3>
+  <div class="row"><button class="btn sm" onclick="document.getElementById('advBox').style.display=document.getElementById('advBox').style.display==='none'?'block':'none'">+ سلفة جديدة</button></div>
+  <div id="advBox" style="display:none">${advanceFields()}</div>${advHtml}</div>
+ <div class="card"><h3 class="sec">${ic('doc',16)} شيتات المراجعة (Excel / PDF)</h3>${batchHtml}${single}</div>`;
 }
 
 async function aaSendClosed(btn){
@@ -700,14 +704,14 @@ async function openBatch(i){
  renderRepTable();document.querySelector('.print-det').classList.add('show');
 }
 
-function advanceForm(){
+function advanceFields(){
  const td=new Date().toISOString().slice(0,10);
- return `<div class="card"><h3 class="sec">${ic('money',16)} إشعار سلفة للشئون الإدارية</h3>
+ return `<div>
  <label>المبلغ (ج.م)</label><input id="adv_amt" type="number" inputmode="decimal" placeholder="مثال 10000">
  <label>التحويل عبر</label><select id="adv_method"><option>محفظة</option><option>إنستاباي</option></select>
  <label>رقم المحفظة / إنستاباي</label><input id="adv_num" inputmode="tel">
  <label>تاريخ التحويل</label><input id="adv_date" type="date" value="${td}">
- <button class="btn" style="margin-top:8px;width:100%" onclick="sendAdvance(this)">إرسال الإشعار للإدارية</button><div id="advMsg"></div></div>`;
+ <button class="btn" style="margin:8px 0;width:100%" onclick="sendAdvance(this)">إرسال الإشعار للإدارية</button><div id="advMsg"></div></div>`;
 }
 async function sendAdvance(btn){
  const m=$('advMsg');const amt=Number($('adv_amt').value||0);
@@ -719,7 +723,25 @@ async function sendAdvance(btn){
  if(r.error){m.innerHTML='<div class="err" style="display:block">'+esc(r.error.message)+'</div>';btn.disabled=false;return}
  window._advIdem=null;
  m.innerHTML='<div style="background:#dcfce7;color:#166534;padding:8px;border-radius:8px;margin-top:8px">وصل الإشعار للإدارية: '+esc((r.data&&r.data.text)||'')+'</div>';
- $('adv_amt').value='';$('adv_num').value='';setTimeout(()=>btn.disabled=false,1500);
+ $('adv_amt').value='';$('adv_num').value='';setTimeout(()=>renderFA(),2500);
+}
+
+async function closeAdvance(id){const r=await sb.rpc('fa_advance_close',{p_code:ME.code,p_pin:window._pin,p_id:id});if(r.error){alert('خطأ: '+r.error.message);return}renderFA();}
+async function reviewBatch(id,action){
+ const note=($('bn-'+id)||{}).value||'';
+ if(action==='return'&&!note.trim()){alert('اكتب سبب الإرجاع');return}
+ const r=await sb.rpc('fa_batch_review',{p_code:ME.code,p_pin:window._pin,p_batch:id,p_action:action,p_note:note||null});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ renderFA();
+}
+async function renderFAAlerts(){
+ const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});
+ const ns=(act.data&&act.data.notifications)||[];
+ const html=ns.length?ns.map(n=>`<div class="req al-yellow"><span class="al-tag al-yellow">${ic('inbox',14)} من الشؤون الإدارية</span>${n.read===false?' <span class="badge inline">جديد</span>':''}<p>${esc(n.text)}</p><span class="mut">${new Date(n.created_at).toLocaleString('ar-EG')}</span></div>`).join(''):'<p class="mut">لا تنبيهات.</p>';
+ $('app').innerHTML=`<div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
+ <div class="tabs"><button onclick="renderHome()">${ic('home',14)} الرئيسية</button><button onclick="renderFA()">${ic('money',14)} الشؤون المالية</button></div>
+ <div class="card"><h3 class="sec">${ic('bell',16)} التنبيهات</h3>${html}</div>`;
+ if(ns.some(n=>n.read===false))sb.rpc('mark_notifs_read',{p_code:ME.code,p_pin:window._pin}).then(()=>{});
 }
 async function faAct(id,action){
  const note=($('fn-'+id)||{}).value||'';
