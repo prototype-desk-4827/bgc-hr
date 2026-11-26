@@ -45,7 +45,7 @@ label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
 table.rep{width:100%;border-collapse:collapse;font-size:12px}
 table.rep th,table.rep td{border:1px solid #33455e;padding:6px;text-align:right}
 table.rep th{background:var(--card2)}
-@media print{body{background:#fff;color:#000}.no-print{display:none!important}.card{border:0;background:#fff}table.rep th{background:#eee}table.rep th,table.rep td{border-color:#999;color:#000}}
+@media print{body{background:#fff;color:#000}.no-print,.tabs,#app>.card:first-child{display:none!important}.card{border:0;background:#fff}table.rep th{background:#eee}table.rep th,table.rep td{border-color:#999;color:#000}}
 h3.sec{font-size:16px;margin:6px 0 10px;color:var(--accent)}
 </style>
 </head>
@@ -306,7 +306,7 @@ async function renderAA(tab){
   body=`<div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ تصدير Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ طباعة / PDF</button></div><div id="repTable" style="margin-top:10px"></div>`;
  }
  $('app').innerHTML=`
- <div class="card"><b>👑 ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
+ <div class="card"><b>${ic('users',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
   <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="tabs">
   <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">${ic('inbox',14)} الطلبات الواردة</button>
@@ -486,7 +486,7 @@ async function renderFA(){
    </div><div id="hist-${r.id}"></div>
   </div>`).join(''):'<p class="mut">لا مستندات بانتظار المراجعة.</p>';
  $('app').innerHTML=`
- <div class="card"><b>💰 ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
+ <div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
   <button class="btn ghost sm" style="float:left" onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
  <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
 }
