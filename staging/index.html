@@ -240,7 +240,7 @@ function alClass(n,reqs){
 async function renderEmp(tab,focusId){
  tab=tab||'home';
  const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});
- const D=act.data||{requests:[],notifications:[]};
+ const D=act.data||{requests:[],notifications:[]};D.requests=(D.requests||[]).filter(r=>!r.aa_archived);
  let body='';
  if(tab==='home'){
   body=`<div class="grid4">
@@ -650,7 +650,7 @@ async function openDoc(did){
 }
 async function loadReports(){
  const r=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
- _rep=r.data||[];
+ _rep=(r.data||[]).filter(x=>!x.aa_archived);
  renderRepTable();
 }
 function exportXlsx(){
