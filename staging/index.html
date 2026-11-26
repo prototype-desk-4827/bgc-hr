@@ -146,7 +146,7 @@ async function renderHome(){
   {k:'aa',icn:'users',t:'الشؤون الإدارية',show:ME.role==='aa'},
   {k:'fa',icn:'money',t:'الشؤون المالية',show:ME.role==='fa'},
   {k:'alerts',icn:'bell',t:'التنبيهات',show:true},
-  {k:'archive',icn:'archive',t:'أرشيف',show:ME.role==='aa'||ME.role==='fa'}
+  {k:'archive',icn:'archive',t:'أرشيف',show:true}
  ];
  $('app').innerHTML=`
  <div class="card head-row"><span><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span></span>
@@ -161,7 +161,7 @@ function openSection(k){
  else if(k==='alerts')(ME.role==='fa'?renderFAAlerts():renderEmp('notif'));
  else if(k==='aa')renderAA();
  else if(k==='fa')renderFA();
- else if(k==='archive')(ME.role==='fa'?renderFAArchive():renderAAArchive());
+ else if(k==='archive')(ME.role==='fa'?renderFAArchive():ME.role==='aa'?renderAAArchive():renderEmpArchive());
 }
 
 // ---------- GEO ----------
@@ -749,6 +749,14 @@ async function renderFAArchive(q){
 }
 async function restoreBatch(id){const r=await sb.rpc('fa_batch_restore',{p_code:ME.code,p_pin:window._pin,p_batch:id});if(r.error){alert('خطأ: '+r.error.message);return}renderFAArchive();}
 async function reopenAdvance(id){const r=await sb.rpc('fa_advance_reopen',{p_code:ME.code,p_pin:window._pin,p_id:id});if(r.error){alert('خطأ: '+r.error.message);return}renderFAArchive();}
+async function renderEmpArchive(){
+ const r=await sb.rpc('emp_archive_list',{p_code:ME.code,p_pin:window._pin});
+ const list=r.data||[];
+ const html=r.error?'<div class="err" style="display:block">تعذر تحميل الأرشيف: '+esc(r.error.message)+'</div>':(list.length?list.map(x=>reqCard(x,false).replace(/<span class="chip [^"]*">[^<]*<\/span>/,'<span class="chip c-closed">راجعتها المالية</span>')).join(''):'<p class="mut">لا عمليات في الأرشيف بعد. تظهر هنا العمليات التي اعتمدتها الشؤون المالية فقط.</p>');
+ $('app').innerHTML=`<div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span></div>
+ <div class="tabs"><button onclick="renderHome()">${ic('home',14)} الرئيسية</button></div>
+ <div class="card"><h3 class="sec">${ic('archive',16)} الأرشيف (${list.length})</h3>${html}</div>`;
+}
 async function renderAAArchive(q){
  q=q||'';
  const r=await sb.rpc('aa_archive_list',{p_code:ME.code,p_pin:window._pin});
