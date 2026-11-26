@@ -381,13 +381,16 @@ async function renderAA(tab){
  tab=tab||'queue';
  let body='';
  if(tab==='queue'){
+  const cu=await sb.rpc('aa_closed_unsent',{p_code:ME.code,p_pin:window._pin});
+  const cn=cu.error?0:(cu.data||0);
+  body+=`<div class="card" style="background:#fff"><button class="btn" id="sendClosedBtn" style="width:100%;padding:14px;font-size:16px" onclick="aaSendClosed(this)">تحويل للشئون المالية للمراجعة${cn?' ('+cn+')':''}</button><p class="mut" style="margin:6px 0 0;font-size:12px">يرسل Excel وPDF لكل العمليات المقفولة فقط، يتولدان تلقائيًا من بيانات الموظفين.</p><div id="sendClosedMsg"></div></div>`;
   let q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});
   if(q.error){await new Promise(r=>setTimeout(r,800));q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});}
   if(q.error){
-   body='<div class="err" style="display:block">تعذر تحميل الطلبات (ليس معناه أن البيانات اختفت): '+esc(q.error.message||'خطأ اتصال')+'</div><div class="row"><button class="btn sm" onclick="renderAA(\'queue\')">إعادة المحاولة</button></div>';
+   body+='<div class="err" style="display:block">تعذر تحميل الطلبات (ليس معناه أن البيانات اختفت): '+esc(q.error.message||'خطأ اتصال')+'</div><div class="row"><button class="btn sm" onclick="renderAA(\'queue\')">إعادة المحاولة</button></div>';
   }else{
    const list=(q.data&&q.data.queue)||[];
-   body=list.length?list.map(r=>aaCard(r)).join(''):'<p class="mut">لا طلبات بانتظار المراجعة حاليًا. الطلبات التي عالجتها موجودة أدناه وفي التقارير.</p>';
+   body+=list.length?list.map(r=>aaCard(r)).join(''):'<p class="mut">لا طلبات بانتظار المراجعة حاليًا. الطلبات التي عالجتها موجودة أدناه وفي التقارير.</p>';
    const rp=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
    if(!rp.error&&rp.data){
     const done=rp.data.filter(r=>r.status!=='pending').sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
@@ -651,6 +654,9 @@ function exportXlsx(){
 // ---------- FA ----------
 async function renderFA(){
  const q=await sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin});
+ const bq=await sb.rpc('fa_batches',{p_code:ME.code,p_pin:window._pin});
+ window._batches=bq.data||[];
+ const batchHtml=window._batches.length?window._batches.map((b,i)=>`<div class="req"><h4>تحويل من الشئون الإدارية <span class="mut">${new Date(b.created_at).toLocaleString('ar-EG')}</span></h4><p>${b.n} عملية مقفولة · الإجمالي ${fmtMoney(b.total)}</p><div class="row"><button class="btn sm" onclick="openBatch(${i})">فتح (Excel / PDF)</button></div></div>`).join(''):'<p class="mut">لا تحويلات من الشئون الإدارية بعد.</p>';
  const list=(q.data&&q.data.queue)||[];
  const body=list.length?list.map(r=>`
   <div class="req">
@@ -671,7 +677,24 @@ async function renderFA(){
  <div class="tabs">
   <button onclick="renderHome()">${ic('home',14)} الرئيسية</button>
  </div>
+ <div class="card"><h3 class="sec">محوّل للمراجعة من الشئون الإدارية</h3>${batchHtml}</div>
  <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
+}
+
+async function aaSendClosed(btn){
+ btn.disabled=true;const m=$('sendClosedMsg');
+ const r=await sb.rpc('aa_send_closed',{p_code:ME.code,p_pin:window._pin});
+ if(r.error){m.innerHTML='<div class="err" style="display:block">'+esc(r.error.message)+'</div>';btn.disabled=false;return}
+ m.innerHTML='<div style="background:#dcfce7;color:#166534;padding:8px;border-radius:8px;margin-top:8px">تم التحويل للشئون المالية: '+r.data.n+' عملية مقفولة، إجمالي '+fmtMoney(r.data.total)+'</div>';
+ setTimeout(()=>renderAA('queue'),2500);
+}
+async function openBatch(i){
+ const b=window._batches[i];_rep=b.requests||[];
+ $('app').innerHTML=`<div class="card"><b>${ic('money',16)} ${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span></div>
+ <div class="tabs"><button onclick="renderFA()">${ic('home',14)} رجوع</button></div>
+ <div class="card"><h3 class="sec">عمليات مقفولة محوّلة من الشئون الإدارية — ${new Date(b.created_at).toLocaleDateString('ar-EG')}</h3>
+ <div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ PDF / طباعة</button></div><div id="repTable" style="margin-top:10px"></div></div>`;
+ renderRepTable();document.querySelector('.print-det').classList.add('show');
 }
 async function faAct(id,action){
  const note=($('fn-'+id)||{}).value||'';
