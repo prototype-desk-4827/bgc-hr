@@ -132,14 +132,18 @@ async function uploadFiles(input){
   const path='staging/'+ME.code+'/'+Date.now()+'-'+f.name.replace(/[^\w.\u0600-\u06FF-]/g,'_');
   const up=await sb.storage.from('hr-docs').upload(path,f);
   if(up.error){out.push({name:f.name,error:up.error.message});continue}
-  const url=SB_URL+'/storage/v1/object/public/hr-docs/'+path;
-  out.push({name:f.name,path,url});
+  out.push({name:f.name,path});
  }
  return out;
 }
 function attLinks(atts){
  if(!atts||!atts.length)return '';
- return '<div class="att">'+atts.map(a=>a.url?`<a href="${a.url}" target="_blank">📎 ${esc(a.name)}</a>`:`📎 ${esc(a.name)} (فشل الرفع)`).join('')+'</div>';
+ return '<div class="att">'+atts.map(a=>a.path?`<a href="#" onclick="openAtt('${a.path}');return false">📎 ${esc(a.name)}</a>`:`📎 ${esc(a.name)} (فشل الرفع)`).join('')+'</div>';
+}
+async function openAtt(path){
+ const r=await sb.storage.from('hr-docs').createSignedUrl(path,3600);
+ if(r.error){alert('تعذر فتح المرفق: '+r.error.message);return}
+ window.open(r.data.signedUrl,'_blank');
 }
 
 // ---------- EMPLOYEE ----------
