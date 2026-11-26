@@ -97,7 +97,7 @@ function logout(){ME=null;renderLogin()}
 // ---------- HOME (4 sections, role visibility) ----------
 function renderHome(){
  const secs=[
-  {k:'requests',em:'🗂️',t:'الطلبات',show:true},
+  {k:'requests',em:'🗂️',t:'الإخطارات',show:true},
   {k:'alerts',em:'🔔',t:'التنبيهات',show:true},
   {k:'aa',em:'👑',t:'الإدارية',show:ME.role==='aa'},
   {k:'fa',em:'💰',t:'المالية',show:ME.role==='fa'}
@@ -125,25 +125,31 @@ function getLoc(){return new Promise(res=>{
   ()=>res({state:'denied'}),{timeout:8000,maximumAge:60000});
 });}
 
-// ---------- UPLOAD ----------
+// ---------- ATTACHMENTS (data URLs inside the request row; row-level access only) ----------
+function fileToAtt(f){return new Promise((res,rej)=>{
+ const done=(data)=>res({name:f.name,type:f.type,data});
+ if(f.type.startsWith('image/')){
+  const img=new Image();const rd=new FileReader();
+  rd.onload=()=>{img.onload=()=>{
+   const mx=1200;let w=img.width,h=img.height;
+   if(w>mx||h>mx){const k=mx/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}
+   const c=document.createElement('canvas');c.width=w;c.height=h;
+   c.getContext('2d').drawImage(img,0,0,w,h);
+   done(c.toDataURL('image/jpeg',0.7));
+  };img.onerror=rej;img.src=rd.result};rd.onerror=rej;rd.readAsDataURL(f);
+ }else{
+  if(f.size>500*1024)return rej(new Error('الملف أكبر من 500KB'));
+  const rd=new FileReader();rd.onload=()=>done(rd.result);rd.onerror=rej;rd.readAsDataURL(f);
+ }
+});}
 async function uploadFiles(input){
  const out=[];
- for(const f of input.files){
-  const path='staging/'+ME.code+'/'+Date.now()+'-'+f.name.replace(/[^\w.\u0600-\u06FF-]/g,'_');
-  const up=await sb.storage.from('hr-docs').upload(path,f);
-  if(up.error){out.push({name:f.name,error:up.error.message});continue}
-  out.push({name:f.name,path});
- }
+ for(const f of input.files){try{out.push(await fileToAtt(f))}catch(e){out.push({name:f.name,error:e.message})}}
  return out;
 }
 function attLinks(atts){
  if(!atts||!atts.length)return '';
- return '<div class="att">'+atts.map(a=>a.path?`<a href="#" onclick="openAtt('${a.path}');return false">📎 ${esc(a.name)}</a>`:`📎 ${esc(a.name)} (فشل الرفع)`).join('')+'</div>';
-}
-async function openAtt(path){
- const r=await sb.storage.from('hr-docs').createSignedUrl(path,3600);
- if(r.error){alert('تعذر فتح المرفق: '+r.error.message);return}
- window.open(r.data.signedUrl,'_blank');
+ return '<div class="att">'+atts.map(a=>a.data?`<a href="${a.data}" target="_blank">📎 ${esc(a.name)}</a>`:`📎 ${esc(a.name)} (فشل الرفع)`).join('')+'</div>';
 }
 
 // ---------- EMPLOYEE ----------
@@ -168,8 +174,8 @@ async function renderEmp(tab){
  <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
   <button class="btn ghost sm" style="float:left" onclick="renderHome()">🏠 الرئيسية</button></div>
  <div class="tabs">
-  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">🗂️ طلب جديد</button>
-  <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">📄 طلباتي</button>
+  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">🗂️ إخطار جديد</button>
+  <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">📄 إخطاراتي</button>
   <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">🔔 التنبيهات</button>
  </div>
  <div class="card">${body}</div>`;
@@ -248,7 +254,7 @@ async function submitReq(kind,resubmitId){
  $('sendBtn').disabled=true;$('sendBtn').textContent='جارٍ الإرسال...';
  try{
   const loc=await getLoc();
-  if(loc.state==='denied'){show('err','إذن الموقع مطلوب لإرسال الإخطار. فعّل الموقع للمتصفح وحاول مرة أخرى.');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  if(loc.state!=='granted'){show('err','إرسال الإخطار يتطلب تسجيل الموقع الحالي. فعّل إذن الموقع والـGPS وحاول مرة أخرى — بياناتك محفوظة في النموذج.');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
   const files=$('f_files');let atts=window._resubmitAtts||[];
   if(files&&files.files.length)atts=atts.concat(await uploadFiles(files));
   const cat=$('f_cat')?$('f_cat').value:null;
