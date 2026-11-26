@@ -131,7 +131,7 @@ function logout(){ME=null;renderLogin()}
 // ---------- HOME (4 sections, role visibility) ----------
 async function alertCount(){
  try{
-  if(ME.role==='aa'){const q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});return ((q.data&&q.data.queue)||[]).length;}
+  if(ME.role==='aa'){const q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});const ac=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});return ((q.data&&q.data.queue)||[]).length+(((ac.data&&ac.data.notifications)||[]).filter(n=>n.read===false).length);}
   if(ME.role==='fa'){const q=await sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin});return ((q.data&&q.data.queue)||[]).length;}
   const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:window._pin});
   return ((act.data&&act.data.requests)||[]).filter(r=>r.status==='pending'||r.status==='returned').length;
@@ -213,6 +213,7 @@ function attLinks(atts){
 // ---------- EMPLOYEE ----------
 function alClass(n,reqs){
  const t=n.text||'';
+ if(t.startsWith('سلفة'))return ['al-green',ic('money',14)+' سلفة جديدة من الشؤون المالية'];
  const req=reqs.find(r=>r.id===n.request_id);
  const st=req?req.status:null;
  if(t.includes('رفض'))return ['al-red','❌ طلب مرفوض'];
@@ -255,7 +256,7 @@ async function renderEmp(tab,focusId){
   const notifHtml=D.notifications.length?D.notifications.map(n=>{
    const c=alClass(n,D.requests||[]);
    const linked=(D.requests||[]).some(r=>r.id===n.request_id);
-   return `<div class="req ${c[0]}"><span class="al-tag ${c[0]}">${c[1]}</span><p>${esc(n.text)}</p>
+   return `<div class="req ${c[0]}"><span class="al-tag ${c[0]}">${c[1]}</span>${n.read===false?' <span class="badge inline">جديد</span>':''}<p>${esc(n.text)}</p>
     ${linked?`<button class="btn ghost sm" onclick="renderEmp('mine','${n.request_id}')">عرض الطلب</button>`:''}
     <span class="mut">${new Date(n.created_at).toLocaleString('ar-EG')}</span></div>`;
   }).join(''):'';
@@ -270,6 +271,7 @@ async function renderEmp(tab,focusId){
   <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">${ic('bell',14)} التنبيهات${(D.requests||[]).filter(r=>r.status==='pending'||r.status==='returned').length?` <span class="badge inline">${(D.requests||[]).filter(r=>r.status==='pending'||r.status==='returned').length}</span>`:''}</button>
  </div>
  <div class="card">${body}</div>`;
+ if(tab==='notif'&&(D.notifications||[]).some(n=>n.read===false))sb.rpc('mark_notifs_read',{p_code:ME.code,p_pin:window._pin});
  if(focusId){const el=$('req-'+focusId);if(el){el.style.outline='2px solid var(--accent)';el.scrollIntoView({block:'center'});}}
 }
 
@@ -383,7 +385,7 @@ async function renderAA(tab){
  if(tab==='queue'){
   const cu=await sb.rpc('aa_closed_unsent',{p_code:ME.code,p_pin:window._pin});
   const cn=cu.error?0:(cu.data||0);
-  body+=`<div class="card" style="background:#fff"><button class="btn" id="sendClosedBtn" style="width:100%;padding:14px;font-size:16px" onclick="aaSendClosed(this)">تحويل للشئون المالية للمراجعة${cn?' ('+cn+')':''}</button><p class="mut" style="margin:6px 0 0;font-size:12px">يرسل Excel وPDF لكل العمليات المقفولة فقط، يتولدان تلقائيًا من بيانات الموظفين.</p><div id="sendClosedMsg"></div></div>`;
+  body+=`<div class="card" style="background:#fff"><button class="btn" id="sendClosedBtn" style="width:100%;padding:14px;font-size:16px" onclick="aaSendClosed(this)">تحويل للشئون المالية للمراجعة${cn?' ('+cn+')':''}</button><p class="mut" style="margin:6px 0 0;font-size:12px">يُرسل ملف Excel وملف PDF لكل العمليات المقفولة فقط، ويُنشآن تلقائيًا من بيانات الموظفين.</p><div id="sendClosedMsg"></div></div>`;
   let q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});
   if(q.error){await new Promise(r=>setTimeout(r,800));q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});}
   if(q.error){
@@ -677,6 +679,7 @@ async function renderFA(){
  <div class="tabs">
   <button onclick="renderHome()">${ic('home',14)} الرئيسية</button>
  </div>
+ ${advanceForm()}
  <div class="card"><h3 class="sec">محوّل للمراجعة من الشئون الإدارية</h3>${batchHtml}</div>
  <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
 }
@@ -695,6 +698,28 @@ async function openBatch(i){
  <div class="card"><h3 class="sec">عمليات مقفولة محوّلة من الشئون الإدارية — ${new Date(b.created_at).toLocaleDateString('ar-EG')}</h3>
  <div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ PDF / طباعة</button></div><div id="repTable" style="margin-top:10px"></div></div>`;
  renderRepTable();document.querySelector('.print-det').classList.add('show');
+}
+
+function advanceForm(){
+ const td=new Date().toISOString().slice(0,10);
+ return `<div class="card"><h3 class="sec">${ic('money',16)} إشعار سلفة للشئون الإدارية</h3>
+ <label>المبلغ (ج.م)</label><input id="adv_amt" type="number" inputmode="decimal" placeholder="مثال 10000">
+ <label>التحويل عبر</label><select id="adv_method"><option>محفظة</option><option>إنستاباي</option></select>
+ <label>رقم المحفظة / إنستاباي</label><input id="adv_num" inputmode="tel">
+ <label>تاريخ التحويل</label><input id="adv_date" type="date" value="${td}">
+ <button class="btn" style="margin-top:8px;width:100%" onclick="sendAdvance(this)">إرسال الإشعار للإدارية</button><div id="advMsg"></div></div>`;
+}
+async function sendAdvance(btn){
+ const m=$('advMsg');const amt=Number($('adv_amt').value||0);
+ if(!(amt>0)){m.innerHTML='<div class="err" style="display:block">اكتب المبلغ</div>';return}
+ if(!$('adv_num').value.trim()){m.innerHTML='<div class="err" style="display:block">اكتب رقم المحفظة أو إنستاباي</div>';return}
+ btn.disabled=true;
+ if(!window._advIdem)window._advIdem=crypto.randomUUID();
+ const r=await sb.rpc('fa_advance_add',{p_code:ME.code,p_pin:window._pin,p_amount:amt,p_method:$('adv_method').value,p_number:$('adv_num').value.trim(),p_date:$('adv_date').value||null,p_note:null,p_idem:window._advIdem});
+ if(r.error){m.innerHTML='<div class="err" style="display:block">'+esc(r.error.message)+'</div>';btn.disabled=false;return}
+ window._advIdem=null;
+ m.innerHTML='<div style="background:#dcfce7;color:#166534;padding:8px;border-radius:8px;margin-top:8px">وصل الإشعار للإدارية: '+esc((r.data&&r.data.text)||'')+'</div>';
+ $('adv_amt').value='';$('adv_num').value='';setTimeout(()=>btn.disabled=false,1500);
 }
 async function faAct(id,action){
  const note=($('fn-'+id)||{}).value||'';
