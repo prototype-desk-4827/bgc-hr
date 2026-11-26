@@ -130,12 +130,27 @@ function openSection(k){
 }
 
 // ---------- GEO ----------
-function getLoc(){return new Promise(res=>{
- if(!navigator.geolocation)return res({state:'unavailable'});
+function _geoOnce(opts){return new Promise(res=>{
  navigator.geolocation.getCurrentPosition(
   p=>res({state:'granted',lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),
-  ()=>res({state:'denied'}),{timeout:8000,maximumAge:60000});
+  e=>res({state:e.code===1?'denied':(e.code===3?'timeout':'unavailable'),code:e.code,msg:e.message||''}),
+  opts);
 });}
+async function getLoc(){
+ if(!navigator.geolocation)return {state:'unavailable',code:0};
+ let r=await _geoOnce({timeout:10000,maximumAge:300000,enableHighAccuracy:false});
+ if(r.state==='granted'||r.state==='denied')return r;
+ r=await _geoOnce({timeout:20000,maximumAge:0,enableHighAccuracy:true});
+ return r;
+}
+const LOC_MSG={denied:'إذن الموقع مرفوض لهذا الموقع في المتصفح. افتح إعدادات الموقع في المتصفح (أيقونة القفل بجوار العنوان ← الأذونات ← الموقع ← سماح) ثم أعد المحاولة. بياناتك محفوظة في النموذج.',timeout:'تعذر تحديد الموقع: انتهت المهلة. اقترب من نافذة أو مكان مفتوح وفعّل الـGPS ثم اضغط "تحقق من الموقع" بالأسفل. بياناتك محفوظة.',unavailable:'خدمة الموقع غير متاحة الآن على الجهاز رغم تفعيل الموقع. فعّل "دقة الموقع المحسّنة/Google Location Accuracy" أو انتقل لمكان به تغطية أفضل ثم حاول. بياناتك محفوظة.'};
+async function checkLoc(){
+ const el=$('locStat');el.style.display='block';el.className='mut';el.textContent='جارٍ تحديد الموقع…';
+ const r=await getLoc();
+ if(r.state==='granted'){el.className='okmsg';el.style.display='block';el.textContent='تم تحديد الموقع بدقة '+r.acc+' متر تقريبًا. يمكنك الإرسال الآن.';window._preLoc=r;window._preLocAt=Date.now();}
+ else{el.className='err';el.style.display='block';el.textContent=(LOC_MSG[r.state]||LOC_MSG.unavailable)+' (رمز '+(r.code??'?')+')';window._preLoc=null;}
+ return r;
+}
 
 // ---------- ATTACHMENTS (data URLs inside the request row; row-level access only) ----------
 function fileToAtt(f){return new Promise((res,rej)=>{
@@ -254,6 +269,10 @@ function renderForm(kind,resubmit){
   <h3 class="sec">${resubmit?'استكمال: ':''}${titles[kind]}</h3>
   <div class="err" id="err"></div><div class="okmsg" id="okm"></div>
   ${f}
+  <div id="locStat" style="display:none;margin-bottom:10px"></div>
+  <div class="row">
+   <button class="btn ghost sm" type="button" onclick="checkLoc()">📍 تحقق من الموقع</button>
+  </div>
   <div class="row">
    <button class="btn" style="flex:2" id="sendBtn" onclick="submitReq('${kind}',${resubmit?`'${r.id}'`:'null'})">${resubmit?'إعادة إرسال':'إرسال الإخطار'}</button>
    <button class="btn ghost" style="flex:1" onclick="${resubmit?`renderEmp('mine')`:`renderEmp('home')`}">إلغاء</button>
@@ -267,8 +286,9 @@ function renderResubmit(r){renderForm(r.kind==='maintenance'?'maintenance':r.kin
 async function submitReq(kind,resubmitId){
  $('sendBtn').disabled=true;$('sendBtn').textContent='جارٍ الإرسال...';
  try{
-  const loc=await getLoc();
-  if(loc.state!=='granted'){show('err','إرسال الإخطار يتطلب تسجيل الموقع الحالي. فعّل إذن الموقع والـGPS وحاول مرة أخرى — بياناتك محفوظة في النموذج.');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  let loc=(window._preLoc&&(Date.now()-(window._preLocAt||0)<120000))?window._preLoc:await getLoc();
+  if(loc.state!=='granted'){show('err',(LOC_MSG[loc.state]||LOC_MSG.unavailable)+' (رمز '+(loc.code??'?')+')');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  window._preLoc=null;
   const files=$('f_files');let atts=window._resubmitAtts||[];
   if(files&&files.files.length)atts=atts.concat(await uploadFiles(files));
   const cat=$('f_cat')?$('f_cat').value:null;
