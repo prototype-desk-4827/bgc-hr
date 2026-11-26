@@ -342,6 +342,7 @@ function renderForm(kind,resubmit){
 function renderResubmit(r){renderForm(r.kind==='maintenance'?'maintenance':r.kind,r)}
 
 async function submitReq(kind,resubmitId){
+ const btn=$('sendBtn'); if(btn){if(btn.disabled)return; btn.disabled=true; setTimeout(()=>btn.disabled=false,5000);}
  $('sendBtn').disabled=true;$('sendBtn').textContent='جارٍ الإرسال...';
  try{
   let loc=(window._preLoc&&(Date.now()-(window._preLocAt||0)<120000))?window._preLoc:{state:'not_provided'};
@@ -440,13 +441,14 @@ async function loadAAApproved(){
     <div class="row"><input id="pm-${r.id}" placeholder="المبلغ الفعلي" type="number" inputmode="decimal" style="width:110px"><input id="pdt-${r.id}" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="row"><select id="pmd-${r.id}"><option>كاش</option><option>فودافون كاش</option><option>تحويل بنكي</option><option>انستاباي</option></select><input id="prc-${r.id}" placeholder="رقم المستلم" inputmode="tel" style="width:140px"></div>
     <div class="row"><label class="mut" style="font-size:12px">إثبات الصرف:</label><input id="ppf-${r.id}" type="file" accept="image/*,.pdf" style="font-size:12px"></div>
-    <button class="btn ok sm" onclick="aaPay('${r.id}')">💸 تسجيل صرف</button></div>`
+    <button class="btn ok sm" id="payb-${r.id}" onclick="aaPay('${r.id}')">💸 تسجيل صرف</button></div>`
    :`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} · ${esc(r.paid_method||'')} · ${fmtDate(r.paid_date)}${r.paid_recipient?` · المستلم ${esc(r.paid_recipient)}`:''}</p>${r.paid_proof&&r.paid_proof.length?attLinks(r.paid_proof):''}<div class="row"><button class="btn warn sm" onclick="aaSendFa('${r.id}')">📤 إحالة للمراجعة المالية</button></div>`}
   </div>`;
  }).join('');
  $('app').querySelector('.card:last-child').insertAdjacentHTML('beforeend',html);
 }
 async function aaPay(id){
+ const btn=$('payb-'+id); if(btn){btn.disabled=true;setTimeout(()=>btn.disabled=false,5000);}
  const amt=$('pm-'+id).value?Number($('pm-'+id).value):null;
  const method=$('pmd-'+id).value||'كاش';
  const dt=$('pdt-'+id).value||null;
@@ -522,10 +524,11 @@ function fundingForm(){
  <label>رقم المستلم</label><input id="fd_recipient" inputmode="tel">
  <label>إثبات التحويل (صورة/مستند)</label><input id="fd_proof" type="file" accept="image/*,.pdf">
  <label>ملاحظة</label><input id="fd_note">
- <button class="btn" onclick="addFunding()">تسجيل التحويل</button>
+ <button class="btn" onclick="addFunding(this)">تسجيل التحويل</button>
  <h3 class="sec" style="margin-top:16px">التحويلات المسجلة (تجميع شهري مع الحفاظ على كل دفعة)</h3>`;
 }
-async function addFunding(){
+async function addFunding(btn){
+ if(btn){btn.disabled=true;setTimeout(()=>btn.disabled=false,4000);}
  let proof=[];
  const pf=$('fd_proof');
  if(pf&&pf.files.length)proof=await uploadFiles(pf);
@@ -558,6 +561,8 @@ function repFiltered(){
  return _rep.filter(r=>(!k||r.kind===k)&&(!f||(r.created_at||'').slice(0,10)>=f)&&(!t||(r.created_at||'').slice(0,10)<=t));
 }
 function renderRepTable(){
+ const f=($('rep_from')||{}).value||'',t=($('rep_to')||{}).value||'';
+ if(f&&t&&f>t){$('repTable').innerHTML='<div class="err" style="display:block">المدى الزمني معكوس: «من» بعد «إلى». صحّح التاريخين.</div>';return;}
  const rows=repFiltered();
  $('repTable').innerHTML=`<p class="mut">${rows.length} طلب</p><table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>تاريخ المستند</th><th>تاريخ التقديم</th></tr>`+
   rows.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${r.request_date||''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>';
