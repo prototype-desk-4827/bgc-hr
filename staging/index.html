@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BGC-HUB | بوابة الشركة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--card2:#243349;--accent:#38bdf8;--accent2:#0ea5e9;--txt:#f1f5f9;--mut:#94a3b8;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--ret:#a78bfa}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Cairo',sans-serif}
+body{background:var(--bg);color:var(--txt);min-height:100vh}
+.wrap{max-width:520px;margin:0 auto;padding:16px}
+.top{display:flex;align-items:center;gap:10px;padding:14px 0}
+.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#082f49;font-size:13px}
+.top h1{font-size:20px}.top small{color:var(--mut);font-size:12px;display:block}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #2b3a52}
+.btn{background:var(--accent2);color:#fff;border:0;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:700;cursor:pointer;width:100%}
+.btn.ghost{background:var(--card2);color:var(--txt)}
+.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}.btn.warn{background:var(--warn);color:#1f2937}.btn.ret{background:var(--ret)}
+.btn.sm{width:auto;padding:8px 12px;font-size:13px;border-radius:9px}
+input,select,textarea{width:100%;background:var(--card2);border:1px solid #33455e;color:var(--txt);border-radius:10px;padding:11px;font-size:15px;margin-bottom:10px;font-family:'Cairo',sans-serif}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.icon-btn{background:var(--card);border:1px solid #2b3a52;border-radius:16px;padding:18px 8px;text-align:center;cursor:pointer;color:var(--txt)}
+.icon-btn .em{font-size:30px;display:block;margin-bottom:6px}
+.icon-btn span.t{font-size:14px;font-weight:700}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.c-pending{background:#3b3f1e;color:#fde68a}.c-approved{background:#14532d;color:#bbf7d0}.c-rejected{background:#7f1d1d;color:#fecaca}.c-returned{background:#4c1d95;color:#ddd6fe}.c-paid{background:#164e63;color:#a5f3fc}.c-awaiting_fa{background:#78350f;color:#fde68a}.c-closed{background:#1e3a2f;color:#86efac}
+.req{background:var(--card2);border-radius:12px;padding:12px;margin-bottom:10px}
+.req h4{font-size:15px;margin-bottom:4px}.req p{font-size:13px;color:var(--mut);white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.mut{color:var(--mut);font-size:12px}
+.err{background:#7f1d1d;color:#fecaca;padding:10px;border-radius:10px;font-size:13px;margin-bottom:10px;display:none}
+.okmsg{background:#14532d;color:#bbf7d0;padding:10px;border-radius:10px;font-size:13px;margin-bottom:10px;display:none}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;background:var(--card);border:1px solid #2b3a52;color:var(--mut);padding:9px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
+.tabs button.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.tl{border-right:2px solid #33455e;padding-right:12px;margin:8px 0}
+.tl div{margin-bottom:8px;font-size:13px}.tl .mut{font-size:11px}
+.att a{color:var(--accent);font-size:12px;display:block}
+.demo{background:#172033;border:1px dashed #33455e;border-radius:12px;padding:10px;font-size:12px;color:var(--mut);margin-top:12px}
+table.rep{width:100%;border-collapse:collapse;font-size:12px}
+table.rep th,table.rep td{border:1px solid #33455e;padding:6px;text-align:right}
+table.rep th{background:var(--card2)}
+@media print{body{background:#fff;color:#000}.no-print{display:none!important}.card{border:0;background:#fff}table.rep th{background:#eee}table.rep th,table.rep td{border-color:#999;color:#000}}
+h3.sec{font-size:16px;margin:6px 0 10px;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="logo">BGC</div>
+    <div><h1>BGC-HUB</h1><small>بوابة الشركة — نسخة تجريبية</small></div>
+  </div>
+  <div id="app"></div>
+</div>
+<script>
+const SB_URL='https://cuqicciqdmgwwptgiqlo.supabase.co';
+const SB_KEY='sb_publishable_5d7CgDrhZiYgSmJeWObr7A_WqdQtPAe';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const $=id=>document.getElementById(id);
+let ME=null;
+const STATUS={pending:['قيد المراجعة','c-pending'],approved:['تمت الموافقة','c-approved'],rejected:['مرفوض','c-rejected'],returned:['مطلوب استكمال','c-returned'],paid:['تم الصرف','c-paid'],awaiting_fa:['بانتظار المراجعة المالية','c-awaiting_fa'],closed:['مقفول ماليًا','c-closed']};
+const KINDS={settlement:'تسوية مستحقات',maintenance:'صيانة',leave:'إجازة',schedule:'جدول العمل'};
+const MCASES={invoice_ready:'فاتورة جاهزة للصرف',needs_funding:'تحتاج تمويل قبل الإصلاح',self_paid:'دفعت من جيبي وأطلب الاسترداد'};
+const LCASES={annual:'سنوية',casual:'عارضة',sick:'مرضية'};
+const SCASES={shift_swap:'تبديل وردية',time_change:'تغيير مواعيد',dayoff_swap:'تبديل يوم راحة'};
+const fmtMoney=n=>n==null?'—':Number(n).toLocaleString('ar-EG')+' ج.م';
+const fmtDate=d=>d?new Date(d).toLocaleDateString('ar-EG'):'—';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function show(el,msg){const d=$(el);d.textContent=msg;d.style.display='block';setTimeout(()=>d.style.display='none',5000)}
+
+// ---------- LOGIN ----------
+function renderLogin(){
+ $('app').innerHTML=`
+ <div class="card">
+  <h3 class="sec">تسجيل الدخول</h3>
+  <div class="err" id="err"></div>
+  <label>كود الموظف</label><input id="code" placeholder="BGC-001" autocomplete="off">
+  <label>كود الدخول السري</label><input id="pin" type="password" placeholder="••••" autocomplete="off">
+  <button class="btn" onclick="doLogin()">دخول</button>
+  <div class="demo">حسابات تجريبية — موظف: BGC-001 / K7X2P9QA · إدارية: BGC-AA / M4T8W2ZB · مالية: BGC-FA / R6N3V8YD<br>كل البيانات الحالية بيانات افتراضية للتجربة فقط.</div>
+ </div>`;
+}
+async function doLogin(){
+ const r=await sb.rpc('staff_login',{p_code:$('code').value.trim(),p_pin:$('pin').value.trim()});
+ if(r.error||!r.data||!r.data.length){show('err','الكود أو الرقم السري غير صحيح');return}
+ ME=r.data[0];
+ if(ME.role==='aa')renderAA();else if(ME.role==='fa')renderFA();else renderEmp();
+}
+function logout(){ME=null;renderLogin()}
+
+// ---------- GEO ----------
+function getLoc(){return new Promise(res=>{
+ if(!navigator.geolocation)return res({state:'unavailable'});
+ navigator.geolocation.getCurrentPosition(
+  p=>res({state:'granted',lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),
+  ()=>res({state:'denied'}),{timeout:8000,maximumAge:60000});
+});}
+
+// ---------- UPLOAD ----------
+async function uploadFiles(input){
+ const out=[];
+ for(const f of input.files){
+  const path='staging/'+ME.code+'/'+Date.now()+'-'+f.name.replace(/[^\w.\u0600-\u06FF-]/g,'_');
+  const up=await sb.storage.from('hr-docs').upload(path,f);
+  if(up.error){out.push({name:f.name,error:up.error.message});continue}
+  const url=SB_URL+'/storage/v1/object/public/hr-docs/'+path;
+  out.push({name:f.name,path,url});
+ }
+ return out;
+}
+function attLinks(atts){
+ if(!atts||!atts.length)return '';
+ return '<div class="att">'+atts.map(a=>a.url?`<a href="${a.url}" target="_blank">📎 ${esc(a.name)}</a>`:`📎 ${esc(a.name)} (فشل الرفع)`).join('')+'</div>';
+}
+
+// ---------- EMPLOYEE ----------
+async function renderEmp(tab){
+ tab=tab||'home';
+ const act=await sb.rpc('my_activity',{p_code:ME.code,p_pin:$('pin').value.trim()});
+ const D=act.data||{requests:[],notifications:[]};
+ let body='';
+ if(tab==='home'){
+  body=`<div class="grid4">
+   <div class="icon-btn" onclick="renderForm('settlement')"><span class="em">💰</span><span class="t">تسوية مستحقات</span></div>
+   <div class="icon-btn" onclick="renderForm('maintenance')"><span class="em">🔧</span><span class="t">صيانة</span></div>
+   <div class="icon-btn" onclick="renderForm('leave')"><span class="em">🌴</span><span class="t">إجازات</span></div>
+   <div class="icon-btn" onclick="renderForm('schedule')"><span class="em">🕒</span><span class="t">جدول العمل</span></div>
+  </div>
+  <p class="mut" style="margin-top:10px">أي صرف لازم يسبقه إخطار من هنا بكل التفاصيل والمستندات الخاصة بالحالة.</p>`;
+ }else if(tab==='mine'){
+  body=D.requests.length?D.requests.map(r=>reqCard(r,true)).join(''):'<p class="mut">لا توجد طلبات بعد.</p>';
+ }else{
+  body=D.notifications.length?D.notifications.map(n=>`<div class="req"><p>${esc(n.text)}</p><span class="mut">${new Date(n.created_at).toLocaleString('ar-EG')}</span></div>`).join(''):'<p class="mut">لا إشعارات.</p>';
+ }
+ $('app').innerHTML=`
+ <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)} · ${esc(ME.site)}</span>
+  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+ <div class="tabs">
+  <button class="${tab==='home'?'on':''}" onclick="renderEmp('home')">🏠 الرئيسية</button>
+  <button class="${tab==='mine'?'on':''}" onclick="renderEmp('mine')">📄 طلباتي</button>
+  <button class="${tab==='notif'?'on':''}" onclick="renderEmp('notif')">🔔 إشعاراتي</button>
+ </div>
+ <div class="card">${body}</div>`;
+ window._pin=$('pin')?$('pin').value:window._pin;
+}
+
+function reqCard(r,mine){
+ const st=STATUS[r.status]||[r.status,'c-pending'];
+ let extra='';
+ if(r.status==='returned'&&mine)extra+=`<div class="err" style="display:block">ملاحظة الإدارية: ${esc(r.return_reason||'')}</div>
+  <div class="row"><button class="btn ret sm" onclick='renderResubmit(${JSON.stringify(r)})'>✏️ استكمال وإعادة إرسال</button></div>`;
+ if(r.status==='paid'||r.status==='awaiting_fa'||r.status==='closed')extra+=`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} بتاريخ ${fmtDate(r.paid_date)} (${esc(r.paid_method||'—')})</p>`;
+ return `<div class="req">
+  <h4>${KINDS[r.kind]||r.kind} <span class="chip ${st[1]}">${st[0]}</span>${r.revision_no>1?` <span class="mut">مراجعة ${r.revision_no}</span>`:''}</h4>
+  ${r.category?`<p class="mut">${esc(r.category)}</p>`:''}
+  <p>${esc(r.details||'')}</p>
+  ${r.amount?`<p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>`:''}
+  ${attLinks(r.attachments)}
+  <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">الموقع</a>`:''}</p>
+  <div class="row"><button class="btn ghost sm" onclick="showHistory('${r.id}')">🕓 السجل</button></div>
+  <div id="hist-${r.id}"></div>
+ </div>`;
+}
+
+async function showHistory(id){
+ const pin=window._pin;
+ const r=await sb.rpc('request_history',{p_code:ME.code,p_pin:pin,p_request_id:id});
+ const el=$('hist-'+id);
+ if(r.error){el.innerHTML='<p class="mut">تعذر تحميل السجل</p>';return}
+ const EV={submitted:'تقديم الطلب',approve:'موافقة',reject:'رفض',return:'إرجاع للاستكمال',resubmitted:'إعادة إرسال بعد استكمال',paid:'تسجيل صرف',sent_to_fa:'إرسال للمراجعة المالية',fa_closed:'قفل مالي',fa_returned:'إعادة من المالية'};
+ el.innerHTML='<div class="tl">'+r.data.map(e=>`<div>${EV[e.event]||e.event} ${e.note?`— ${esc(e.note)}`:''}<br><span class="mut">${e.actor} · ${new Date(e.at).toLocaleString('ar-EG')}</span></div>`).join('')+'</div>';
+}
+
+// ---------- REQUEST FORM ----------
+function renderForm(kind,resubmit){
+ const r=resubmit||{};
+ const titles={settlement:'تسوية مستحقات',maintenance:'إخطار صيانة',leave:'طلب إجازة',schedule:'طلب جدول عمل'};
+ let f='';
+ if(kind==='settlement'){
+  f=`<label>حتى تاريخ</label><input id="f_date" type="date" value="${r.request_date||new Date().toISOString().slice(0,10)}">
+     <label>المبلغ المطلوب (ج.م)</label><input id="f_amount" type="number" inputmode="decimal" value="${r.amount||''}">
+     <label>تفاصيل التسوية (الفترة، بنود الاستحقاق...)</label><textarea id="f_details" rows="3">${esc(r.details||'')}</textarea>
+     <label>مرفقات (كشوف/مستندات)</label><input id="f_files" type="file" multiple>`;
+ }else if(kind==='maintenance'){
+  f=`<label>نوع الحالة</label><select id="f_cat">${Object.entries(MCASES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+     <label>وصف الحالة والموقع</label><textarea id="f_details" rows="3" placeholder="مثال: تسريب في دورة المياه بالدور الثاني — موقع الشروق">${esc(r.details||'')}</textarea>
+     <label>المبلغ (إن وُجد، ج.م)</label><input id="f_amount" type="number" inputmode="decimal" value="${r.amount||''}">
+     <label>مرفقات (صور العطل / الفاتورة)</label><input id="f_files" type="file" multiple accept="image/*,.pdf">`;
+ }else if(kind==='leave'){
+  f=`<label>نوع الإجازة</label><select id="f_cat">${Object.entries(LCASES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+     <label>من تاريخ</label><input id="f_date" type="date" value="${r.request_date||new Date().toISOString().slice(0,10)}">
+     <label>إلى تاريخ</label><input id="f_date2" type="date">
+     <label>البديل أثناء الإجازة / ملاحظات</label><textarea id="f_details" rows="2">${esc(r.details||'')}</textarea>
+     <label>مرفقات (تقرير طبي...)</label><input id="f_files" type="file" multiple accept="image/*,.pdf">`;
+ }else{
+  f=`<label>نوع الطلب</label><select id="f_cat">${Object.entries(SCASES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+     <label>التاريخ المقترح</label><input id="f_date" type="date" value="${r.request_date||new Date().toISOString().slice(0,10)}">
+     <label>التفاصيل</label><textarea id="f_details" rows="3">${esc(r.details||'')}</textarea>`;
+ }
+ $('app').innerHTML=`
+ <div class="card">
+  <h3 class="sec">${resubmit?'استكمال: ':''}${titles[kind]}</h3>
+  <div class="err" id="err"></div><div class="okmsg" id="okm"></div>
+  ${f}
+  <div class="row">
+   <button class="btn" style="flex:2" id="sendBtn" onclick="submitReq('${kind}',${resubmit?`'${r.id}'`:'null'})">${resubmit?'إعادة إرسال':'إرسال الإخطار'}</button>
+   <button class="btn ghost" style="flex:1" onclick="${resubmit?`renderEmp('mine')`:`renderEmp('home')`}">إلغاء</button>
+  </div>
+  <p class="mut" style="margin-top:8px">عند الإرسال يُسجَّل موقعك التقريبي لمرة واحدة بإذنك، مع التاريخ والوقت.</p>
+ </div>`;
+ window._resubmitAtts=r.attachments||null;
+}
+function renderResubmit(r){renderForm(r.kind==='maintenance'?'maintenance':r.kind,r)}
+
+async function submitReq(kind,resubmitId){
+ $('sendBtn').disabled=true;$('sendBtn').textContent='جارٍ الإرسال...';
+ try{
+  const loc=await getLoc();
+  const files=$('f_files');let atts=window._resubmitAtts||[];
+  if(files&&files.files.length)atts=atts.concat(await uploadFiles(files));
+  const cat=$('f_cat')?$('f_cat').value:null;
+  const catLabel=cat?(MCASES[cat]||LCASES[cat]||SCASES[cat]||cat):null;
+  let details=$('f_details').value.trim();
+  if(kind==='leave'&&$('f_date2')&&$('f_date2').value)details='إلى '+$('f_date2').value+'\n'+details;
+  const amount=$('f_amount')&&$('f_amount').value?Number($('f_amount').value):null;
+  const date=$('f_date')?$('f_date').value:null;
+  if(!details&&!amount){show('err','اكتب التفاصيل أو المبلغ');$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  let r;
+  if(resubmitId){
+   r=await sb.rpc('resubmit_request',{p_code:ME.code,p_pin:window._pin,p_request_id:resubmitId,p_details:details,p_amount:amount,p_notes:null,p_attachments:atts});
+  }else{
+   r=await sb.rpc('submit_request',{p_code:ME.code,p_pin:window._pin,p_kind:kind,p_category:catLabel,p_details:details,p_amount:amount,p_request_date:date,p_notes:null,p_lat:loc.lat||null,p_lng:loc.lng||null,p_loc_acc:loc.acc||null,p_loc_state:loc.state,p_attachments:atts});
+  }
+  if(r.error){show('err','خطأ: '+r.error.message);$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار';return}
+  window._resubmitAtts=null;
+  renderEmp('mine');
+ }catch(e){show('err','خطأ: '+e.message);$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال الإخطار'}
+}
+
+// ---------- AA ----------
+async function renderAA(tab){
+ tab=tab||'queue';
+ let body='';
+ if(tab==='queue'){
+  const q=await sb.rpc('aa_queue',{p_code:ME.code,p_pin:window._pin});
+  const list=(q.data&&q.data.queue)||[];
+  body=list.length?list.map(r=>aaCard(r)).join(''):'<p class="mut">لا طلبات بانتظار المراجعة.</p>';
+ }else if(tab==='funding'){
+  body=fundingForm()+`<div id="fundList"></div>`;
+ }else if(tab==='staff'){
+  body=staffForm()+`<div id="staffList" style="margin-top:12px"></div>`;
+ }else{
+  body=`<div class="row no-print"><button class="btn sm" onclick="exportXlsx()">⬇️ تصدير Excel</button><button class="btn ghost sm" onclick="window.print()">🖨️ طباعة / PDF</button></div><div id="repTable" style="margin-top:10px"></div>`;
+ }
+ $('app').innerHTML=`
+ <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
+  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+ <div class="tabs">
+  <button class="${tab==='queue'?'on':''}" onclick="renderAA('queue')">📥 الطلبات الواردة</button>
+  <button class="${tab==='funding'?'on':''}" onclick="renderAA('funding')">💵 تحويلات التمويل</button>
+  <button class="${tab==='staff'?'on':''}" onclick="renderAA('staff')">👥 الموظفون</button>
+  <button class="${tab==='rep'?'on':''}" onclick="renderAA('rep')">📊 التقارير</button>
+ </div>
+ <div class="card">${body}</div>`;
+ if(tab==='staff')loadStaff();
+ if(tab==='funding')loadFunding();
+ if(tab==='rep')loadReports();
+ if(tab==='queue')loadAAApproved();
+}
+
+function aaCard(r){
+ const st=STATUS[r.status];
+ return `<div class="req">
+  <h4>${esc(r.employee_name)} <span class="mut">${esc(r.job_title)} · ${esc(r.site)}</span></h4>
+  <p><b>${KINDS[r.kind]}</b> <span class="chip ${st[1]}">${st[0]}</span>${r.revision_no>1?` <span class="chip c-returned">مراجعة ${r.revision_no}</span>`:''}</p>
+  ${r.category?`<p class="mut">${esc(r.category)}</p>`:''}
+  <p>${esc(r.details||'')}</p>
+  ${r.amount?`<p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>`:''}
+  ${attLinks(r.attachments)}
+  <p class="mut">${new Date(r.created_at).toLocaleString('ar-EG')}${r.location_state==='granted'?` · <a style="color:var(--accent)" href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank">موقع الإرسال</a>`:' · الموقع: '+(r.location_state==='denied'?'مرفوض':'غير متاح')}</p>
+  <input id="rs-${r.id}" placeholder="سبب / ملاحظة (إلزامي للإرجاع)">
+  <div class="row">
+   <button class="btn ok sm" onclick="aaAct('${r.id}','approve')">✅ موافقة</button>
+   <button class="btn ret sm" onclick="aaAct('${r.id}','return')">↩️ إرجاع للاستكمال</button>
+   <button class="btn bad sm" onclick="aaAct('${r.id}','reject')">❌ رفض</button>
+   <button class="btn ghost sm" onclick="showHistory('${r.id}')">🕓 السجل</button>
+  </div><div id="hist-${r.id}"></div>
+ </div>`;
+}
+async function aaAct(id,action){
+ const reason=($('rs-'+id)||{}).value||'';
+ const r=await sb.rpc('aa_decide',{p_code:ME.code,p_pin:window._pin,p_request_id:id,p_action:action,p_reason:reason||null,p_paid:null});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ renderAA('queue');
+}
+async function loadAAApproved(){
+ const rep=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
+ const approved=(rep.data||[]).filter(r=>r.status==='approved'||r.status==='paid');
+ if(!approved.length)return;
+ const html='<h3 class="sec">بانتظار الصرف / الإحالة للمالية</h3>'+approved.map(r=>{
+  const st=STATUS[r.status];
+  return `<div class="req"><h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip ${st[1]}">${st[0]}</span></h4>
+   <p>المبلغ: <b>${fmtMoney(r.amount)}</b></p>
+   ${r.status==='approved'?`<div class="row"><input id="pm-${r.id}" placeholder="المبلغ الفعلي" type="number" style="width:110px"><input id="pmd-${r.id}" placeholder="طريقة الصرف" style="width:130px"><button class="btn ok sm" onclick="aaPay('${r.id}')">💸 تسجيل صرف</button></div>`
+   :`<p class="mut">صُرف: ${fmtMoney(r.paid_amount)} · ${esc(r.paid_method||'')} · ${fmtDate(r.paid_date)}</p><div class="row"><button class="btn warn sm" onclick="aaSendFa('${r.id}')">📤 إحالة للمراجعة المالية</button></div>`}
+  </div>`;
+ }).join('');
+ $('app').querySelector('.card:last-child').insertAdjacentHTML('beforeend',html);
+}
+async function aaPay(id){
+ const amt=$('pm-'+id).value?Number($('pm-'+id).value):null;
+ const method=$('pmd-'+id).value||'كاش';
+ const r=await sb.rpc('aa_decide',{p_code:ME.code,p_pin:window._pin,p_request_id:id,p_action:'paid',p_reason:null,p_paid:{amount:amt,method:method}});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ renderAA('queue');
+}
+async function aaSendFa(id){
+ const r=await sb.rpc('aa_send_fa',{p_code:ME.code,p_pin:window._pin,p_request_id:id,p_note:null});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ renderAA('queue');
+}
+
+// staff lifecycle (AA)
+function staffForm(){
+ return `<h3 class="sec">إضافة موظف جديد</h3>
+ <div class="err" id="serr"></div><div class="okmsg" id="sok"></div>
+ <label>كود الموظف (فريد)</label><input id="st_code" placeholder="BGC-009">
+ <label>الاسم</label><input id="st_name">
+ <label>الوظيفة</label><input id="st_job" placeholder="عامل / مهندس موقع / مشرف">
+ <label>الموقع</label><input id="st_site">
+ <label>رقم الموبايل</label><input id="st_phone" inputmode="tel">
+ <p class="mut">كود الدخول السري يتولّد تلقائيًا ويظهر مرة واحدة للطباعة والتسليم للموظف.</p>
+ <button class="btn" onclick="addStaff()">إضافة الموظف</button>
+ <div id="slip"></div>
+ <h3 class="sec" style="margin-top:16px">الموظفون المسجلون</h3>`;
+}
+async function addStaff(){
+ const r=await sb.rpc('staff_add',{p_code:ME.code,p_pin:window._pin,p_new_code:$('st_code').value.trim(),p_name:$('st_name').value.trim(),p_job_title:$('st_job').value.trim(),p_site:$('st_site').value.trim(),p_phone:$('st_phone').value.trim()});
+ if(r.error){show('serr','خطأ: '+r.error.message);return}
+ show('sok','تمت إضافة الموظف');printSlip($('st_code').value.trim(),$('st_name').value.trim(),r.data);loadStaff();
+}
+function printSlip(code,name,secret){
+ $('slip').innerHTML=`<div class="req" style="border:2px dashed var(--warn)">
+  <h4>🎫 ورقة تسليم كود الدخول — تُطبع وتُسلَّم للموظف</h4>
+  <p>الاسم: <b>${esc(name)}</b><br>كود الموظف: <b>${esc(code)}</b><br>كود الدخول السري: <b style="font-size:20px;color:var(--warn)">${esc(secret)}</b></p>
+  <p class="mut">يظهر هذا الكود مرة واحدة فقط. لو اتكشف، استخدم «إعادة توليد كود».</p>
+  <div class="row no-print"><button class="btn warn sm" onclick="window.print()">🖨️ طباعة الورقة</button></div>
+ </div>`;
+}
+async function rotateStaff(code,name){
+ if(!confirm('توليد كود دخول جديد لـ '+name+'؟ الكود القديم هيتلغي فورًا.'))return;
+ const r=await sb.rpc('staff_rotate',{p_code:ME.code,p_pin:window._pin,p_target:code});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ printSlip(code,name,r.data);
+}
+async function loadStaff(){
+ const r=await sb.rpc('staff_list',{p_code:ME.code,p_pin:window._pin});
+ $('staffList').innerHTML=(r.data||[]).map(s=>`<div class="req"><h4>${esc(s.name)} <span class="mut">${esc(s.code)} · ${esc(s.job_title||'')}</span> ${s.active?'<span class="chip c-approved">نشط</span>':'<span class="chip c-rejected">موقوف</span>'}</h4>
+  <p class="mut">${esc(s.site||'')} · ${esc(s.phone||'')}</p>
+  ${s.role==='employee'?`<div class="row">${s.active?`<button class="btn bad sm" onclick="toggleStaff('${esc(s.code)}',false)">⛔ إيقاف الكود</button>`:`<button class="btn ok sm" onclick="toggleStaff('${esc(s.code)}',true)">▶️ إعادة تفعيل</button>`}<button class="btn warn sm" onclick="rotateStaff('${esc(s.code)}','${esc(s.name)}')">🔄 إعادة توليد كود</button></div>`:'<p class="mut">حساب إداري</p>'}
+ </div>`).join('');
+}
+async function toggleStaff(code,active){
+ const r=await sb.rpc('staff_set_active',{p_code:ME.code,p_pin:window._pin,p_target:code,p_active:active});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ loadStaff();
+}
+
+// funding
+function fundingForm(){
+ return `<h3 class="sec">تسجيل تحويل من المالية</h3>
+ <div class="err" id="ferr"></div><div class="okmsg" id="fok"></div>
+ <label>الجهة المحوِّلة</label><input id="fd_from" value="الإدارة المالية">
+ <label>المبلغ (ج.م)</label><input id="fd_amount" type="number" inputmode="decimal">
+ <label>التاريخ</label><input id="fd_date" type="date" value="${new Date().toISOString().slice(0,10)}">
+ <label>الطريقة</label><select id="fd_method"><option>كاش</option><option>فودافون كاش</option><option>تحويل بنكي</option><option>انستاباي</option></select>
+ <label>رقم المحفظة / المرجع</label><input id="fd_ref">
+ <label>ملاحظة</label><input id="fd_note">
+ <button class="btn" onclick="addFunding()">تسجيل التحويل</button>
+ <h3 class="sec" style="margin-top:16px">التحويلات المسجلة (تجميع شهري مع الحفاظ على كل دفعة)</h3>`;
+}
+async function addFunding(){
+ const r=await sb.rpc('funding_add',{p_code:ME.code,p_pin:window._pin,p_from_name:$('fd_from').value,p_amount:Number($('fd_amount').value||0),p_transfer_date:$('fd_date').value,p_method:$('fd_method').value,p_reference:$('fd_ref').value||null,p_note:$('fd_note').value||null});
+ if(r.error){show('ferr','خطأ: '+r.error.message);return}
+ show('fok','تم التسجيل');loadFunding();
+}
+async function loadFunding(){
+ const r=await sb.rpc('funding_list',{p_code:ME.code,p_pin:window._pin});
+ const list=r.data||[];
+ const months={};
+ list.forEach(f=>{const m=(f.transfer_date||'').slice(0,7);(months[m]=months[m]||[]).push(f)});
+ $('fundList').innerHTML=Object.keys(months).sort().reverse().map(m=>{
+  const rows=months[m];const tot=rows.reduce((s,f)=>s+Number(f.amount),0);
+  return `<p><b>شهر ${m}</b> — الإجمالي: <b>${fmtMoney(tot)}</b> (${rows.length} دفعة)</p>`+
+   rows.map(f=>`<div class="req"><p>${fmtMoney(f.amount)} — ${esc(f.method||'')} ${f.reference?'· مرجع '+esc(f.reference):''}</p><p class="mut">${fmtDate(f.transfer_date)} · من ${esc(f.from_name||'')} ${f.note?'· '+esc(f.note):''}</p></div>`).join('');
+ }).join('')||'<p class="mut">لا تحويلات مسجلة.</p>';
+}
+
+// reports
+let _rep=[];
+async function loadReports(){
+ const r=await sb.rpc('aa_reports',{p_code:ME.code,p_pin:window._pin});
+ _rep=r.data||[];
+ $('repTable').innerHTML=`<table class="rep"><tr><th>الموظف</th><th>النوع</th><th>الحالة</th><th>المبلغ</th><th>التاريخ</th></tr>`+
+  _rep.map(r=>`<tr><td>${esc(r.employee_name)}</td><td>${KINDS[r.kind]}</td><td>${STATUS[r.status][0]}</td><td>${r.amount??''}</td><td>${new Date(r.created_at).toLocaleDateString('ar-EG')}</td></tr>`).join('')+'</table>';
+}
+function exportXlsx(){
+ const rows=_rep.map(r=>({'الموظف':r.employee_name,'الوظيفة':r.job_title,'الموقع':r.site,'النوع':KINDS[r.kind],'الحالة':STATUS[r.status][0],'المبلغ':r.amount,'المدفوع':r.paid_amount,'التاريخ':new Date(r.created_at).toLocaleDateString('ar-EG'),'التفاصيل':r.details}));
+ const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'الطلبات');XLSX.writeFile(wb,'bgc-hub-requests.xlsx');
+}
+
+// ---------- FA ----------
+async function renderFA(){
+ const q=await sb.rpc('fa_queue',{p_code:ME.code,p_pin:window._pin});
+ const list=(q.data&&q.data.queue)||[];
+ const body=list.length?list.map(r=>`
+  <div class="req">
+   <h4>${esc(r.employee_name)} — ${KINDS[r.kind]} <span class="chip c-awaiting_fa">بانتظار المراجعة المالية</span></h4>
+   <p>${esc(r.details||'')}</p>
+   <p>المبلغ المطلوب: ${fmtMoney(r.amount)} · المدفوع: <b>${fmtMoney(r.paid_amount)}</b> (${esc(r.paid_method||'—')} · ${fmtDate(r.paid_date)})</p>
+   ${attLinks(r.attachments)}
+   <input id="fn-${r.id}" placeholder="ملاحظة المراجعة (إلزامية عند الإعادة)">
+   <div class="row">
+    <button class="btn ok sm" onclick="faAct('${r.id}','close')">🔒 مراجعة وقفل</button>
+    <button class="btn ret sm" onclick="faAct('${r.id}','return')">↩️ إعادة للإدارية</button>
+    <button class="btn ghost sm" onclick="showHistory('${r.id}')">🕓 السجل</button>
+   </div><div id="hist-${r.id}"></div>
+  </div>`).join(''):'<p class="mut">لا مستندات بانتظار المراجعة.</p>';
+ $('app').innerHTML=`
+ <div class="card"><b>${esc(ME.name)}</b> <span class="mut">${esc(ME.job_title)}</span>
+  <button class="btn ghost sm" style="float:left" onclick="logout()">خروج</button></div>
+ <div class="card"><h3 class="sec">المراجعات المالية</h3>${body}</div>`;
+}
+async function faAct(id,action){
+ const note=($('fn-'+id)||{}).value||'';
+ const r=await sb.rpc('fa_decide',{p_code:ME.code,p_pin:window._pin,p_request_id:id,p_action:action,p_note:note||null});
+ if(r.error){alert('خطأ: '+r.error.message);return}
+ renderFA();
+}
+
+// keep pin across renders
+const _origRender=renderEmp;
+document.addEventListener('input',e=>{if(e.target.id==='pin')window._pin=e.target.value});
+renderLogin();
+</script>
+</body>
+</html>
